@@ -30,6 +30,7 @@ export function useLogin() {
       if (useAuthStore.getState().revision === revision) useAuthStore.getState().clearUser();
       setError(loginErrorMessage(cause));
       if (cause instanceof ApiError && cause.code === "EMAIL_NOT_VERIFIED") setUnverifiedEmail(values.email);
+    } finally {
       locked.current = false;
       setIsPending(false);
     }

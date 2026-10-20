@@ -130,3 +130,42 @@ it("clears UI identity after logout and preserves a retry on server failure", as
   await act(async () => result.current.logout());
   expect(replace).toHaveBeenCalledWith("/login");
 });
+
+it("returns to an enabled sign-in form after logout without another session check", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(response({ success: true, data: { message: "Signed out" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  useAuthStore.getState().setUser(user);
+  const { result } = renderHook(() => useLogout());
+  await act(async () => result.current.logout());
+  expect(replace).toHaveBeenCalledWith("/login");
+  expect(result.current.isPending).toBe(false);
+  render(<LoginForm />);
+  expect((screen.getByRole("button", { name: "Sign in" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock).toHaveBeenCalledWith("/api/session/logout", expect.anything());
+});
+
+it("releases the login loading state when the form is reused after sign-out", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => success()));
+  const { result } = renderHook(() => useLogin());
+  await act(async () => result.current.login(credentials));
+  expect(result.current.isPending).toBe(false);
+  act(() => useAuthStore.getState().clearUser());
+  await act(async () => result.current.login(credentials));
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(useAuthStore.getState().user).toEqual(user);
+});
+
+it("does not reuse a stale restoration after the session changes", async () => {
+  let finish!: (value: Response) => void;
+  vi.stubGlobal("fetch", vi.fn()
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }))
+    .mockResolvedValueOnce(unauthorized()));
+  const oldRestoration = restoreCurrentUser();
+  useAuthStore.getState().clearUser();
+  await restoreCurrentUser();
+  finish(success());
+  await oldRestoration;
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(useAuthStore.getState().status).toBe("unauthenticated");
+});
