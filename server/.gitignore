@@ -1,0 +1,29 @@
+# Dependencies and generated output
+node_modules/
+dist/
+src/generated/
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and test output
+logs/
+*.log
+coverage/
+.nyc_output/
+
+# Local tooling
+.agents/
+.claude/
+.cursor/
+.devin/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

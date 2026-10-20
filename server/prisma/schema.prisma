@@ -1,0 +1,49 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SME
+  OPERATOR
+  RIDER
+}
+
+// Profiles are created atomically with local accounts.
+model Profile {
+  id        String   @id @db.Uuid
+  account   Account?
+  fullName  String?  @map("full_name") @db.VarChar(120)
+  phone     String?  @db.VarChar(32)
+  role      Role     @default(SME)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("profiles")
+}
+
+model Account {
+  id String @id @default(uuid()) @db.Uuid
+  email String @unique @db.VarChar(254)
+  passwordHash String @map("password_hash")
+  profile Profile @relation(fields: [id], references: [id], onDelete: Cascade)
+  sessions AuthSession[]
+  @@map("accounts")
+}
+
+model AuthSession {
+  id String @id @default(uuid()) @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accessHash String @unique @map("access_hash")
+  refreshHash String @unique @map("refresh_hash")
+  accessExpiresAt DateTime @map("access_expires_at") @db.Timestamptz(3)
+  refreshExpiresAt DateTime @map("refresh_expires_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@map("auth_sessions")
+}
