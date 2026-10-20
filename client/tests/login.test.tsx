@@ -89,7 +89,7 @@ it("disables pending login, updates only UI identity, and navigates safely", asy
   await act(async () => finish(success()));
   expect(useAuthStore.getState().user).toEqual(user);
   expect(Object.keys(useAuthStore.getState())).not.toContain("accessToken");
-  expect(replace).toHaveBeenCalledWith("/account");
+  expect(replace).toHaveBeenCalledWith("/seller");
   expect(fetchMock).toHaveBeenCalledWith("/api/session/login", expect.objectContaining({ credentials: "same-origin", body: JSON.stringify(credentials) }));
 });
 

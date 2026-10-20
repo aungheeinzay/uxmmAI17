@@ -1,4 +1,4 @@
-import { asyncHandler } from "../../lib/errors/error-handler";
+import { asyncHandler } from "../../middleware/async-handler";
 import * as service from "./user.service";
 import { profileUpdateSchema } from "./user.validation";
 

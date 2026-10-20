@@ -36,7 +36,25 @@ model Account {
   sessions AuthSession[]
   verificationToken EmailVerificationToken?
   passwordResetToken PasswordResetToken?
+  riderInvitations RiderInvitation[]
   @@map("accounts")
+}
+
+model RiderInvitation {
+  id          String    @id @default(uuid()) @db.Uuid
+  email       String    @unique @db.VarChar(254)
+  fullName    String?   @map("full_name") @db.VarChar(120)
+  tokenHash   String    @unique @map("token_hash")
+  invitedById String    @map("invited_by_id") @db.Uuid
+  invitedBy   Account   @relation(fields: [invitedById], references: [id], onDelete: Restrict)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
+  acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([invitedById])
+  @@index([expiresAt])
+  @@map("rider_invitations")
 }
 
 model EmailVerificationToken {

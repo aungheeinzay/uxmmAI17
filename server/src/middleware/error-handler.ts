@@ -1,10 +1,6 @@
-import type { ErrorRequestHandler, RequestHandler } from "express";
+import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
-import { AppError } from "./app-error";
-
-export const asyncHandler = (handler: RequestHandler): RequestHandler => (req, res, next) => {
-  Promise.resolve().then(() => handler(req, res, next)).catch(next);
-};
+import { AppError } from "../lib/errors/app-error";
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
   if (error instanceof ZodError) {

@@ -67,7 +67,7 @@ beforeAll(async () => {
   const express = require("../../server/node_modules/express");
   const wrapper = express();
   // Test-only resource exercises the real role middleware; no production route is added.
-  wrapper.get("/operator-only", require("../../server/dist/lib/middleware/require-auth.js").requireAuth, require("../../server/dist/lib/middleware/require-role.js").requireRole("OPERATOR"), (_request: unknown, response: { json: (value: unknown) => void }) => response.json({ success: true }));
+  wrapper.get("/operator-only", require("../../server/dist/middleware/require-auth.js").requireAuth, require("../../server/dist/middleware/require-role.js").requireRole("OPERATOR"), (_request: unknown, response: { json: (value: unknown) => void }) => response.json({ success: true }));
   wrapper.use(app);
   server = wrapper.listen(0, "127.0.0.1");
   await new Promise<void>((resolve) => server.once("listening", resolve));

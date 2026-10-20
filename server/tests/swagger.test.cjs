@@ -40,6 +40,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'post /api/auth/register', 'post /api/auth/login', 'post /api/auth/refresh',
     'post /api/auth/verify-email', 'post /api/auth/resend-verification', 'post /api/auth/forgot-password', 'post /api/auth/reset-password',
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',
+    'post /api/riders/invitations', 'post /api/riders/activate',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
   assert.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
