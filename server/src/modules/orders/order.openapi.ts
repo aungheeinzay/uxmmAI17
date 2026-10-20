@@ -1,0 +1,301 @@
+import { createOrderSchema, listOrdersQuerySchema, updateOrderStatusSchema } from "./order.validation";
+import { OrderStatus } from "../../generated/prisma/enums";
+import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
+
+// Every supported parcel status, taken from the generated Prisma enum.
+const statusValues = Object.values(OrderStatus);
+
+const createExample = {
+  recipientName: "Aung Aung",
+  phoneNumber: "09123456789",
+  township: "Kamayut",
+  deliveryAddress: "Full delivery address",
+  parcelWeight: 1.5,
+  codAmount: "25000.00",
+  senderName: "Example Shop",
+  deliveryInstructions: "Please call before delivery.",
+  deliveryServiceId: "550e8400-e29b-41d4-a716-446655440000",
+};
+
+const createdExample = {
+  id: "660e8400-e29b-41d4-a716-446655440000",
+  orderCode: "POA1B2C3D4E5F678",
+  ownerId: "550e8400-e29b-41d4-a716-446655440000",
+  deliveryServiceId: createExample.deliveryServiceId,
+  recipientName: createExample.recipientName,
+  phoneNumber: createExample.phoneNumber,
+  township: createExample.township,
+  deliveryAddress: createExample.deliveryAddress,
+  parcelWeight: "1.5",
+  parcelWeightUnit: "kg",
+  codAmount: "25000",
+  currency: "MMK",
+  senderName: createExample.senderName,
+  deliveryInstructions: createExample.deliveryInstructions,
+  status: "CREATED",
+  createdAt: "2026-10-20T00:00:00.000Z",
+  updatedAt: "2026-10-20T00:00:00.000Z",
+};
+
+// The status-update response is the full parcel detail plus the status it moved from.
+const updatedOrderDetailSchema = {
+  allOf: [
+    ref("OrderDetail"),
+    {
+      type: "object",
+      required: ["previousStatus"],
+      properties: {
+        previousStatus: { type: "string", enum: statusValues, description: "Status the parcel held immediately before this accepted update." },
+      },
+    },
+  ],
+};
+
+export const orderSchemas = {
+  CreateOrderInput: inputSchema(createOrderSchema),
+  ListOrdersQuery: inputSchema(listOrdersQuerySchema),
+  UpdateOrderStatusInput: inputSchema(updateOrderStatusSchema),
+  ListedOrder: {
+    type: "object",
+    required: [
+      "id", "orderCode", "recipientName", "phoneNumber", "township", "deliveryAddress",
+      "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "senderName", "status",
+      "createdAt", "deliveryService",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      recipientName: { type: "string" },
+      phoneNumber: { type: "string" },
+      township: { type: "string" },
+      deliveryAddress: { type: "string" },
+      parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
+      parcelWeightUnit: { type: "string", enum: ["kg"] },
+      codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
+      currency: { type: "string", enum: ["MMK"] },
+      senderName: { type: "string" },
+      status: { type: "string", enum: statusValues },
+      createdAt: { type: "string", format: "date-time" },
+      deliveryService: {
+        type: "object",
+        required: ["id", "name"],
+        properties: { id: { type: "string", format: "uuid" }, name: { type: "string" } },
+      },
+    },
+  },
+  OrderList: {
+    type: "object",
+    required: ["orders", "pagination"],
+    properties: {
+      orders: { type: "array", items: ref("ListedOrder") },
+      pagination: {
+        type: "object",
+        required: ["page", "pageSize", "total", "totalPages"],
+        properties: {
+          page: { type: "integer", minimum: 1 },
+          pageSize: { type: "integer", minimum: 1, maximum: 100 },
+          total: { type: "integer", minimum: 0 },
+          totalPages: { type: "integer", minimum: 0 },
+        },
+      },
+    },
+  },
+  CreatedOrder: {
+    type: "object",
+    required: [
+      "id", "orderCode", "ownerId", "deliveryServiceId", "recipientName", "phoneNumber",
+      "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
+      "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      ownerId: { type: "string", format: "uuid" },
+      deliveryServiceId: { type: "string", format: "uuid" },
+      recipientName: { type: "string" },
+      phoneNumber: { type: "string" },
+      township: { type: "string" },
+      deliveryAddress: { type: "string" },
+      parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
+      parcelWeightUnit: { type: "string", enum: ["kg"] },
+      codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
+      currency: { type: "string", enum: ["MMK"] },
+      senderName: { type: "string" },
+      deliveryInstructions: { type: "string", nullable: true },
+      status: { type: "string", enum: ["CREATED"] },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  },
+  OrderDetail: {
+    type: "object",
+    required: [
+      "id", "orderCode", "ownerId", "deliveryServiceId", "recipientName", "phoneNumber",
+      "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
+      "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
+      "owner", "deliveryService",
+    ],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      ownerId: { type: "string", format: "uuid" },
+      deliveryServiceId: { type: "string", format: "uuid" },
+      recipientName: { type: "string" },
+      phoneNumber: { type: "string" },
+      township: { type: "string" },
+      deliveryAddress: { type: "string" },
+      parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
+      parcelWeightUnit: { type: "string", enum: ["kg"] },
+      codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
+      currency: { type: "string", enum: ["MMK"] },
+      senderName: { type: "string" },
+      deliveryInstructions: { type: "string", nullable: true },
+      status: { type: "string", enum: statusValues },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+      owner: {
+        type: "object",
+        required: ["id", "fullName", "phone"],
+        description: "The authenticated parcel owner's profile. Contains no account or security data.",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          fullName: { type: "string", nullable: true },
+          phone: { type: "string", nullable: true },
+        },
+      },
+      deliveryService: {
+        type: "object",
+        required: ["id", "name", "isActive"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          isActive: { type: "boolean" },
+        },
+      },
+    },
+  },
+  UpdatedOrderDetail: updatedOrderDetailSchema,
+};
+
+const listedExample = {
+  id: createdExample.id,
+  orderCode: createdExample.orderCode,
+  recipientName: createdExample.recipientName,
+  phoneNumber: createdExample.phoneNumber,
+  township: createdExample.township,
+  deliveryAddress: createdExample.deliveryAddress,
+  parcelWeight: createdExample.parcelWeight,
+  parcelWeightUnit: "kg",
+  codAmount: createdExample.codAmount,
+  currency: "MMK",
+  senderName: createdExample.senderName,
+  status: "CREATED",
+  createdAt: createdExample.createdAt,
+  deliveryService: { id: createExample.deliveryServiceId, name: "Test Carrier" },
+};
+
+const listExample = {
+  orders: [listedExample],
+  pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+};
+
+const orderDetailExample = {
+  ...createdExample,
+  owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
+  deliveryService: { id: createExample.deliveryServiceId, name: "Test Carrier", isActive: true },
+};
+
+const statusUpdateExample = {
+  status: "PICKED_UP",
+  note: "Parcel handed over to the delivery service",
+};
+
+const updatedOrderDetailExample = {
+  ...orderDetailExample,
+  status: "PICKED_UP",
+  previousStatus: "CREATED",
+  updatedAt: "2026-10-20T01:00:00.000Z",
+};
+
+export const orderPaths = {
+  "/api/orders": {
+    get: {
+      operationId: "listOrders", tags: ["Orders"], summary: "List the authenticated SME's parcels",
+      description: "Returns the caller's own parcels, newest first. Search matches order code or recipient name; status filters by parcel status. Results are paginated; the pagination envelope reports page, pageSize, total matching records and totalPages. Access is always scoped to the authenticated SME; client-supplied owner/account/SME identifiers are ignored.",
+      security: bearerSecurity,
+      parameters: [
+        { name: "page", in: "query", required: false, schema: { type: "integer", minimum: 1, default: 1 }, description: "1-based page number. Invalid values are rejected." },
+        { name: "pageSize", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 20 }, description: "Records per page (1-100). Invalid values are rejected." },
+        { name: "search", in: "query", required: false, schema: { type: "string", maxLength: 120 }, description: "Trimmed text matched against order code or recipient name." },
+        { name: "status", in: "query", required: false, schema: { type: "string", enum: ["CREATED"] }, description: "Filter by parcel status. Unsupported statuses are rejected." },
+      ],
+      responses: {
+        200: response("Paginated parcel list", successSchema(ref("OrderList")), { success: true, data: listExample }),
+        ...errorResponses([400, 401, 403, 404, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+        }),
+      },
+    },
+    post: {
+      operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
+      description: "Authenticated SME users create an order for their own profile. Ownership, status, order code, currency and timestamps are assigned on the server. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
+      security: bearerSecurity,
+      requestBody: requestBody(ref("CreateOrderInput"), createExample),
+      responses: {
+        201: response("Created order", successSchema(ref("CreatedOrder")), { success: true, data: createdExample }),
+        ...errorResponses([400, 401, 403, 404, 409, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+          404: ["DELIVERY_SERVICE_UNAVAILABLE", "Delivery service is not available."],
+          409: ["ORDER_CREATE_FAILED", "Unable to create the order. Try again."],
+        }),
+      },
+    },
+  },
+  "/api/orders/{id}": {
+    get: {
+      operationId: "getOrder", tags: ["Orders"], summary: "Get parcel details",
+      description: "Returns the complete detail of one parcel owned by the authenticated SME. The path identifier is either the parcel's UUID id or its order code (PO followed by 16 uppercase hex characters). Access is enforced inside the database lookup: a parcel belonging to another SME is reported exactly like a missing parcel, so its existence is never revealed. Delivery instructions, COD, timestamps, the owner's profile and the assigned delivery service are included.",
+      security: bearerSecurity,
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string", maxLength: 64 }, description: "Parcel UUID id or order code (PO + 16 uppercase hex characters, case-insensitive). Anything else is rejected with 400." },
+      ],
+      responses: {
+        200: response("Parcel details", successSchema(ref("OrderDetail")), { success: true, data: orderDetailExample }),
+        ...errorResponses([400, 401, 403, 404, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+          404: ["ORDER_NOT_FOUND", "Parcel not found."],
+        }),
+      },
+    },
+  },
+  "/api/orders/{id}/status": {
+    patch: {
+      operationId: "updateOrderStatus", tags: ["Orders"], summary: "Update a parcel's delivery status",
+      description: [
+        "Changes the status of one parcel owned by the authenticated SME and returns the updated parcel with previousStatus set to the status it moved from. The actor is always the authenticated user; ownership, actor ids and timestamps are never accepted from the client.",
+        "Transition rules (only these are permitted; self-transitions are rejected):",
+        "CREATED → PICKED_UP | CANCELLED;",
+        "PICKED_UP → IN_TRANSIT | FAILED;",
+        "IN_TRANSIT → OUT_FOR_DELIVERY | FAILED;",
+        "OUT_FOR_DELIVERY → DELIVERED | FAILED.",
+        "DELIVERED, FAILED and CANCELLED are terminal: any change from them fails with 409 ORDER_IS_TERMINAL.",
+        "Any other combination fails with 409 STATUS_TRANSITION_NOT_ALLOWED.",
+        "If another request changes the status first, the update is rejected with 409 STATUS_UPDATE_CONFLICT instead of silently overwriting it.",
+        "The status change and its history record (order_status_events: previous status, new status, actor, timestamp, optional note) are written in one transaction.",
+      ].join(" "),
+      security: bearerSecurity,
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string", maxLength: 64 }, description: "Parcel UUID id or order code (PO + 16 uppercase hex characters, case-insensitive). Anything else is rejected with 400." },
+      ],
+      requestBody: requestBody(ref("UpdateOrderStatusInput"), statusUpdateExample, "Only status and an optional note are accepted. Unknown fields are rejected with 400."),
+      responses: {
+        200: response("Updated parcel", successSchema(updatedOrderDetailSchema), { success: true, data: updatedOrderDetailExample }),
+        ...errorResponses([400, 401, 403, 404, 409, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+          404: ["ORDER_NOT_FOUND", "Parcel not found."],
+          409: ["STATUS_TRANSITION_NOT_ALLOWED", "That status change is not allowed from the parcel's current status."],
+        }),
+      },
+    },
+  },
+};

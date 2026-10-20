@@ -23,6 +23,8 @@ model Profile {
   role      Role     @default(SME)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orders    ParcelOrder[]
+  statusEvents OrderStatusEvent[]
 
   @@map("profiles")
 }
@@ -71,4 +73,72 @@ model AuthSession {
   refreshExpiresAt DateTime @map("refresh_expires_at") @db.Timestamptz(3)
   @@index([accountId])
   @@map("auth_sessions")
+}
+
+// Catalog of delivery companies/services. Eligibility for Feature 1 is isActive.
+model DeliveryService {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orders    ParcelOrder[]
+
+  @@index([isActive])
+  @@map("delivery_services")
+}
+
+enum OrderStatus {
+  CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+// Parcel weight is stored in kilograms (parcel_weight_kg). COD is MMK and is not a delivery fee.
+// No delivery-fee column: pricing rules are not implemented. Access is through Express/Prisma only.
+model ParcelOrder {
+  id                    String          @id @default(uuid()) @db.Uuid
+  orderCode             String          @unique @map("order_code") @db.VarChar(32)
+  ownerId               String          @map("owner_id") @db.Uuid
+  owner                 Profile         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  deliveryServiceId     String          @map("delivery_service_id") @db.Uuid
+  deliveryService       DeliveryService @relation(fields: [deliveryServiceId], references: [id], onDelete: Restrict)
+  recipientName         String          @map("recipient_name") @db.VarChar(120)
+  phoneNumber           String          @map("phone_number") @db.VarChar(32)
+  township              String          @db.VarChar(120)
+  deliveryAddress       String          @map("delivery_address") @db.VarChar(500)
+  parcelWeightKg        Decimal         @map("parcel_weight_kg") @db.Decimal(8, 3)
+  codAmount             Decimal         @map("cod_amount") @db.Decimal(12, 2)
+  currency              String          @default("MMK") @db.VarChar(3)
+  senderName            String          @map("sender_name") @db.VarChar(120)
+  deliveryInstructions  String?         @map("delivery_instructions") @db.VarChar(1000)
+  status                OrderStatus     @default(CREATED)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  statusEvents          OrderStatusEvent[]
+
+  @@index([ownerId])
+  @@index([deliveryServiceId])
+  @@map("orders")
+}
+
+// Append-only record of parcel status changes. The actor is always the
+// authenticated user from the server session, never a client-supplied id.
+model OrderStatusEvent {
+  id             String      @id @default(uuid()) @db.Uuid
+  orderId        String      @map("order_id") @db.Uuid
+  order          ParcelOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorId        String      @map("actor_id") @db.Uuid
+  actor          Profile     @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  previousStatus OrderStatus @map("previous_status")
+  status         OrderStatus
+  note           String?     @db.VarChar(1000)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_events")
 }

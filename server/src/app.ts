@@ -3,6 +3,7 @@ import cors from "cors";
 import { env } from "./config/env";
 import { authRouter } from "./modules/auth/auth.router";
 import { userRouter } from "./modules/users/user.router";
+import { orderRouter } from "./modules/orders/order.router";
 import { errorHandler } from "./lib/errors/error-handler";
 import { registerSwagger } from "./config/swagger";
 
@@ -24,6 +25,7 @@ app.get("/health", (_request, response) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
+app.use("/api/orders", orderRouter);
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Route not found." } });
 });
