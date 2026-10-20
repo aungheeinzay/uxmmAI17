@@ -14,6 +14,12 @@ const result = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   ENABLE_API_DOCS: z.enum(["true", "false"]).transform(value => value === "true").optional(),
   DATABASE_URL: configuredValue.pipe(z.url({ protocol: /^postgres(?:ql)?$/ })),
+  FRONTEND_URL: z.url({ protocol: /^https?$/ }).default("http://localhost:3001"),
+  SMTP_HOST: z.string().trim().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASSWORD: z.string().min(1).optional(),
+  SMTP_FROM: z.email().optional(),
 }).safeParse(process.env);
 
 if (!result.success) {

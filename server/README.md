@@ -22,9 +22,10 @@ npm run dev
 Use your configured port if it differs from 3000.
 
 1. Expand **Authentication > POST /api/auth/register**, click **Try it out**, enter
-   a new email/password, and click **Execute**. Registration returns a session.
-   Use **POST /api/auth/login** for an existing account.
-2. Copy the returned `data.accessToken`. Click **Authorize**, paste only the token
+   a new email/password, and click **Execute**. Registration sends a verification
+   email without creating a session. Submit the emailed token using
+   **POST /api/auth/verify-email**, then log in with **POST /api/auth/login**.
+2. Copy login's returned `data.accessToken`. Click **Authorize**, paste only the token
    without a `Bearer` prefix, and click **Authorize** in the dialog.
 3. Try **Users > GET /api/users/me** or **PATCH /api/users/me**. Swagger UI adds the
    Bearer header automatically. Requests still pass through normal authentication.
@@ -35,6 +36,11 @@ Use your configured port if it differs from 3000.
 
 The API uses opaque tokens, not JWTs. Register, login, refresh, and health are public;
 profile and logout endpoints require an access token. Examples contain dummy values.
+Verify-email, resend-verification, forgot-password and reset-password are also
+public and rate limited. Configure SMTP using `.env.example`; see the
+[email verification guide](docs/EMAIL_VERIFICATION.md). Existing accounts must
+verify before login or session use. See [password reset](docs/PASSWORD_RESET.md)
+and the [full API contract](docs/API_DOCUMENTATION.md).
 Authorization is not persisted across page reloads. Avoid using production accounts
 for interactive testing.
 
@@ -75,6 +81,8 @@ protected ones. Do not add documentation for endpoints before implementing them.
 npm test
 ```
 
-Builds TypeScript and runs authentication and documentation tests. Automated auth
-tests mock persistence; they do not change the live database. Documentation tests
+Builds TypeScript and runs authentication and documentation tests. Ordinary auth
+tests mock persistence. PostgreSQL integration tests run only when explicitly
+configured with `TEST_DATABASE_URL` for a migrated development/test database;
+their mail transport is mocked. Documentation tests
 check paths, schemas, UI assets, public/protected access, and production restrictions.

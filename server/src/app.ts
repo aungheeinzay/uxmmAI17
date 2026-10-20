@@ -1,4 +1,6 @@
 import express from "express";
+import cors from "cors";
+import { env } from "./config/env";
 import { authRouter } from "./modules/auth/auth.router";
 import { userRouter } from "./modules/users/user.router";
 import { errorHandler } from "./lib/errors/error-handler";
@@ -7,6 +9,12 @@ import { registerSwagger } from "./config/swagger";
 export const app = express();
 
 app.disable("x-powered-by");
+app.use(cors({
+  origin: new URL(env.FRONTEND_URL).origin,
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+}));
 app.use(express.json({ limit: "16kb" }));
 registerSwagger(app);
 

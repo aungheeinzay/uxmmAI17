@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "../../lib/errors/app-error";
 import { hashPassword, verifyPassword } from "./auth.password";
 import * as repository from "./auth.repository";
+import { deliverToken, tokenDigest } from "./auth.email.service";
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");
 const dummyHash = hashPassword(randomBytes(32).toString("hex"));
 function credentials() {
@@ -18,7 +19,9 @@ function result(account: Account, tokens: ReturnType<typeof credentials>) {
 async function issue(account: Account) {
   const tokens = credentials();
   const { accessToken, refreshToken, ...data } = tokens;
-  await repository.createSession({ accountId: account.id, ...data });
+  if (!await repository.createSession({ accountId: account.id, ...data }, account.passwordHash)) {
+    throw new AppError(401, "LOGIN_FAILED", "Please log in again with your current credentials after verifying your email.");
+  }
   return result(account, tokens);
 }
 export async function register(input: { email: string; password: string }) {
@@ -29,17 +32,19 @@ export async function register(input: { email: string; password: string }) {
       throw new AppError(409, "REGISTRATION_FAILED", "Unable to register with these details.");
     throw error;
   }
-  return { confirmationRequired: false, ...await issue(account) };
+  await deliverToken(account, "verification");
+  return { confirmationRequired: true, message: "Check your email to verify your account before logging in." };
 }
 export async function login(input: { email: string; password: string }) {
   const account = await repository.findAccount(input.email.toLowerCase());
   const valid = await verifyPassword(input.password, account?.passwordHash ?? await dummyHash);
   if (!account || !valid) throw new AppError(401, "LOGIN_FAILED", "Invalid email or password.");
+  if (!account.emailVerifiedAt) throw new AppError(403, "EMAIL_NOT_VERIFIED", "Verify your email before logging in.");
   return issue(account);
 }
 export async function authenticate(accessToken: string) {
   const session = await repository.findSession(digest(accessToken));
-  if (!session || session.accessExpiresAt <= new Date()) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
+  if (!session || session.accessExpiresAt <= new Date() || !session.account.emailVerifiedAt) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
   return { id: session.account.id, email: session.account.email, role: session.account.profile.role, accessToken };
 }
 export async function refresh(refreshToken: string) {
@@ -52,4 +57,12 @@ export async function refresh(refreshToken: string) {
 export async function logout(accessToken: string) {
   await repository.revokeSession(digest(accessToken));
   return { message: "Session ended." };
+}
+
+export async function resetPassword(input: { token: string; newPassword: string }) {
+  const passwordHash = await hashPassword(input.newPassword);
+  if (!await repository.resetAccountPassword(tokenDigest(input.token), passwordHash)) {
+    throw new AppError(400, "INVALID_RESET_TOKEN", "Invalid or expired password reset token.");
+  }
+  return { message: "Password reset. Log in with your new password." };
 }

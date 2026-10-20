@@ -38,20 +38,21 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   const operations = Object.entries(spec.paths).flatMap(([path, methods]) => Object.keys(methods).map(method => `${method} ${path}`));
   assert.deepEqual(operations.sort(), [
     'post /api/auth/register', 'post /api/auth/login', 'post /api/auth/refresh',
+    'post /api/auth/verify-email', 'post /api/auth/resend-verification', 'post /api/auth/forgot-password', 'post /api/auth/reset-password',
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
   assert.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
   assert.equal(spec.components.securitySchemes.bearerAuth.bearerFormat, undefined);
-  for (const path of ['/api/auth/register', '/api/auth/login', '/api/auth/refresh']) {
+  for (const path of ['/api/auth/register', '/api/auth/login', '/api/auth/refresh', '/api/auth/verify-email', '/api/auth/resend-verification', '/api/auth/forgot-password', '/api/auth/reset-password']) {
     assert.deepEqual(spec.paths[path].post.security, []);
   }
   assert.deepEqual(spec.paths['/api/auth/logout'].post.security, [{ bearerAuth: [] }]);
   for (const method of ['get', 'patch']) assert.deepEqual(spec.paths['/api/users/me'][method].security, [{ bearerAuth: [] }]);
-  const { registerSchema, loginSchema, refreshSchema } = require('../dist/modules/auth/auth.validation');
+  const { registerSchema, loginSchema, refreshSchema, verifyEmailSchema, emailRequestSchema, resetPasswordSchema } = require('../dist/modules/auth/auth.validation');
   const { profileUpdateSchema } = require('../dist/modules/users/user.validation');
   const { z } = require('zod');
-  for (const [name, schema] of [['RegisterInput', registerSchema], ['LoginInput', loginSchema], ['RefreshInput', refreshSchema]]) {
+  for (const [name, schema] of [['RegisterInput', registerSchema], ['LoginInput', loginSchema], ['RefreshInput', refreshSchema], ['VerifyEmailInput', verifyEmailSchema], ['EmailRequestInput', emailRequestSchema], ['ResetPasswordInput', resetPasswordSchema]]) {
     assert.deepEqual(spec.components.schemas[name], z.toJSONSchema(schema, { target: 'openapi-3.0', io: 'input' }));
   }
   assert.deepEqual(spec.components.schemas.ProfileUpdate, { ...z.toJSONSchema(profileUpdateSchema, { target: 'openapi-3.0', io: 'input' }), minProperties: 1 });
@@ -64,12 +65,18 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     for (const value of Object.values(node)) verifyRefs(value);
   }
   verifyRefs(spec);
+  assert.equal(spec.components.schemas.Registration.properties.confirmationRequired.enum[0], true);
+  assert.equal(spec.components.schemas.Registration.properties.accessToken, undefined);
+  assert.ok(spec.paths['/api/auth/login'].post.responses['403']);
+  for (const [path, schema] of [['/api/auth/verify-email', verifyEmailSchema], ['/api/auth/reset-password', resetPasswordSchema]]) {
+    assert.equal(schema.safeParse(spec.paths[path].post.requestBody.content['application/json'].example).success, true);
+  }
   assert.doesNotMatch(JSON.stringify(spec), /postgres(?:ql)?:\/\/|passwordHash|password_hash|access_hash|refresh_hash/);
 });
 
 test('public operations reach validation without auth and protected operations reject missing Bearer', async () => {
   assert.equal((await fetch(base + '/health')).status, 200);
-  for (const path of ['/api/auth/register', '/api/auth/login', '/api/auth/refresh']) {
+  for (const path of ['/api/auth/register', '/api/auth/login', '/api/auth/refresh', '/api/auth/verify-email', '/api/auth/resend-verification', '/api/auth/forgot-password', '/api/auth/reset-password']) {
     const res = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     assert.equal(res.status, 400);
     assert.equal((await res.json()).error.code, 'VALIDATION_ERROR');
@@ -77,6 +84,17 @@ test('public operations reach validation without auth and protected operations r
   for (const [method, path] of [['GET', '/api/users/me'], ['PATCH', '/api/users/me'], ['POST', '/api/auth/logout']]) {
     assert.equal((await fetch(base + path, { method })).status, 401);
   }
+});
+
+test('email request endpoints share a stricter IP rate limit', async () => {
+  const statuses = [];
+  for (let i = 0; i < 6; i++) {
+    const path = i % 2 ? '/api/auth/forgot-password' : '/api/auth/resend-verification';
+    const res = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    statuses.push(res.status);
+    if (res.status === 429) assert.equal((await res.json()).error.code, 'RATE_LIMITED');
+  }
+  assert.equal(statuses.at(-1), 429);
 });
 
 test('production hides both docs routes unless explicitly enabled; false disables in development', () => {

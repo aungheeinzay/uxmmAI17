@@ -31,9 +31,34 @@ model Account {
   id String @id @default(uuid()) @db.Uuid
   email String @unique @db.VarChar(254)
   passwordHash String @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
   profile Profile @relation(fields: [id], references: [id], onDelete: Cascade)
   sessions AuthSession[]
+  verificationToken EmailVerificationToken?
+  passwordResetToken PasswordResetToken?
   @@map("accounts")
+}
+
+model EmailVerificationToken {
+  id String @id @default(uuid()) @db.Uuid
+  accountId String @unique @map("account_id") @db.Uuid
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([expiresAt])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id String @id @default(uuid()) @db.Uuid
+  accountId String @unique @map("account_id") @db.Uuid
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 model AuthSession {

@@ -1,0 +1,55 @@
+import "server-only";
+
+import { z } from "zod";
+import { authUserSchema } from "../schemas/auth.schema";
+
+export class SessionError extends Error {
+  constructor(public status: number, public code: string) { super("Session request failed"); }
+}
+
+export const tokenSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    accessToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+    refreshToken: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+    expiresIn: z.number().int().positive().max(900),
+    user: z.object({ id: z.string().uuid(), email: z.string().email() }),
+  }),
+});
+export type Tokens = z.infer<typeof tokenSchema>["data"];
+
+export async function expressAuth(path: string, body?: unknown, accessToken?: string): Promise<unknown> {
+  const base = new URL(process.env.EXPRESS_API_URL ?? "http://localhost:4000");
+  if (!["http:", "https:"].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
+    throw new SessionError(503, "CONFIGURATION_ERROR");
+  }
+  let response: Response;
+  try {
+    response = await fetch(new URL(path, base), {
+      method: body === undefined ? "GET" : "POST",
+      headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000),
+    });
+  } catch { throw new SessionError(503, "SERVICE_UNAVAILABLE"); }
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const result = z.object({ error: z.object({ code: z.string() }) }).safeParse(payload);
+    const allowed = ["LOGIN_FAILED", "EMAIL_NOT_VERIFIED", "INVALID_REFRESH_TOKEN", "UNAUTHORIZED", "RATE_LIMITED", "VALIDATION_ERROR"];
+    const code = result.success && allowed.includes(result.data.error.code) ? result.data.error.code : "SERVICE_UNAVAILABLE";
+    throw new SessionError(response.status, code);
+  }
+  return payload;
+}
+
+export async function currentProfile(accessToken: string) {
+  const result = z.object({ success: z.literal(true), data: authUserSchema }).safeParse(await expressAuth("/api/users/me", undefined, accessToken));
+  if (!result.success) throw new SessionError(502, "INVALID_RESPONSE");
+  return result.data.data;
+}
+
+export async function exchangeTokens(path: "/api/auth/login" | "/api/auth/refresh", body: unknown): Promise<Tokens> {
+  const result = tokenSchema.safeParse(await expressAuth(path, body));
+  if (!result.success) throw new SessionError(502, "INVALID_RESPONSE");
+  return result.data.data;
+}

@@ -5,10 +5,14 @@ process.env.NODE_ENV='test';
 process.env.DATABASE_URL='postgresql://test:test@localhost:5432/test';
 const repo=require('../dist/modules/auth/auth.repository');
 const users=require('../dist/modules/users/user.repository');
-const accounts=new Map(), sessions=new Map();
+const accounts=new Map(), sessions=new Map(), tokensByHash=new Map();
+const emails=[];
+require("../dist/lib/email/email.service").sendAccountEmail=async(email,purpose,token)=>emails.push({email,purpose,token});
+repo.reserveEmailToken=async(accountId,purpose,tokenHash)=>{tokensByHash.set(tokenHash,accountId);return true;};
+repo.consumeVerificationToken=async hash=>{const id=tokensByHash.get(hash);if(!id)return false;tokensByHash.delete(hash);[...accounts.values()].find(a=>a.id===id).emailVerifiedAt=new Date();return true;};
 repo.createAccount=async(email,passwordHash)=>{
  if(accounts.has(email))throw {code:'P2002'};
- const id=randomUUID();const a={id,email,passwordHash,profile:{id,role:'SME',fullName:null,phone:null}};
+ const id=randomUUID();const a={id,email,passwordHash,emailVerifiedAt:null,profile:{id,role:'SME',fullName:null,phone:null}};
  accounts.set(email,a);return a;
 };
 repo.findAccount=async email=>accounts.get(email)||null;
@@ -29,9 +33,12 @@ async function request(path,body,token,method='POST'){
 test('registration, login, expiry, rotation and immediate logout',async()=>{
  const credentials={email:'User@example.com',password:'correct-password'};
  const registered=await request('/api/auth/register',credentials);
- assert.equal(registered.status,201);const tokens=registered.body.data;
- assert.equal(tokens.confirmationRequired,false);assert.equal(tokens.user.profile.role,'SME');
- assert.equal(tokens.user.email,'user@example.com');assert.equal(tokens.user.passwordHash,undefined);
+ assert.equal(registered.status,201);assert.equal(registered.body.data.confirmationRequired,true);
+ assert.equal(registered.body.data.accessToken,undefined);assert.equal(sessions.size,0);
+ assert.equal(accounts.get("user@example.com").profile.role,"SME");
+ assert.equal((await request("/api/auth/login",credentials)).status,403);
+ assert.equal((await request("/api/auth/verify-email",{token:emails[0].token})).status,200);
+ const initialLogin=await request("/api/auth/login",credentials);const tokens=initialLogin.body.data;
  const account=accounts.get('user@example.com');assert.notEqual(account.passwordHash,credentials.password);
  assert.ok(!JSON.stringify([...sessions.values()]).includes(tokens.accessToken));
  assert.equal((await request('/api/auth/register',credentials)).status,409);
