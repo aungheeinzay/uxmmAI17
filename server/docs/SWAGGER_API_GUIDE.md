@@ -28,7 +28,7 @@ Database access must be configured for database-backed operations. Email workflo
 
 ## Send a request
 
-1. Expand the endpoint under Authentication, Users, Riders, or Health.
+1. Expand the endpoint under Authentication, Users, Orders, Operator, Riders, or Health.
 2. Click **Try it out**.
 3. Replace the example body with your test values. JSON keys and string values require double quotes; do not include comments or trailing commas.
 4. Click **Execute**.

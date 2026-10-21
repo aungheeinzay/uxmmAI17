@@ -66,7 +66,7 @@ export const createOrderSchema = z.object({
   codAmount: codAmountSchema,
   senderName: requiredText(120),
   deliveryInstructions: z.string().trim().max(1000).optional().nullable(),
-  deliveryServiceId: z.string().uuid(),
+  operatorId: z.string().uuid(),
 }).strict();
 
 // Public parcel identifier for detail lookups: the UUID id or the generated order code.

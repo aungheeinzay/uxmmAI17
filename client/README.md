@@ -2,6 +2,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Operator dashboard routes, Incoming Parcels APIs, session transport, filters, and manual testing are documented in [Operator Incoming Parcels](docs/OPERATOR_INCOMING_PARCELS.md).
+
 First, run the development server:
 
 ```bash

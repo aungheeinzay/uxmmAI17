@@ -25,7 +25,27 @@ Click Authorize and paste only the opaque access token, without a Bearer prefix.
 | PATCH | `/api/users/me` | `{ "fullName": "Example User", "phone": "+959123456789" }` | Bearer access token | 200; updated profile |
 | POST | `/api/riders/invitations` | `{ "email": "rider@example.com", "fullName": "Rider One" }` | OPERATOR Bearer access token | 201; pending invitation, no raw token |
 | POST | `/api/riders/activate` | `{ "token": "<invitation-token>", "password": "<chosen-password>" }` | Public, invitation token required | 200; activated message, no session |
+| GET | `/api/operator/orders` | None; query filters and pagination | OPERATOR Bearer access token | 200; orders and pagination |
+| GET | `/api/operator/orders/:id` | None; UUID path parameter | OPERATOR Bearer access token | 200; parcel details and status history |
+| GET | `/api/sme/dashboard` | None | SME Bearer access token | 200; SME dashboard from the synchronized SME module |
+| PATCH | `/api/operator/orders/:id/receive` | Optional `{ "note": "Parcel received at intake desk." }` | OPERATOR Bearer access token | 200; CREATED becomes PICKED_UP with history |
 | GET | `/health` | None | Public | 200; `{ "status": "ok" }` |
+
+### Operator incoming orders
+
+The current shared database contract uses Operator profiles instead of delivery services. See [schema synchronization](OPERATOR_SCHEMA_SYNC.md): Operator responses include nullable `operatorId` and `operator` and no longer include `deliveryService`. The original incoming-orders guide's delivery-service references are superseded by this contract.
+
+See [Operator API and development seeder](OPERATOR_INCOMING_ORDERS.md) for the complete contract, authorization, setup and test instructions. Both GET endpoints are also published under **Operator** in Swagger.
+
+Parcel receiving is documented in [Operator Parcel Receiving](OPERATOR_PARCEL_RECEIVING.md) and Swagger under **Operator**. Only `CREATED → PICKED_UP` is accepted. Missing authentication returns 401; wrong roles 403; missing/out-of-scope UUIDs 404; non-CREATED states or concurrent conflicts 409. Actor/status/timestamp/ownership overrides are rejected. The status change and trusted-actor history event are transactional.
+
+List parameters: `page` (default 1), `pageSize` (default 20, maximum 100), `search` (order code or recipient name), `status`, `township` (exact case-insensitive match), and `createdDate` (YYYY-MM-DD, UTC).
+Example: `GET /api/operator/orders?page=1&pageSize=20&status=CREATED&township=Tamwe`.
+The response is `{ success: true, data: { orders, pagination: { page, pageSize, total, totalPages } } }`.
+Details return `{ success: true, data: { ...parcel, statusEvents } }`. Weight and COD values are decimal strings.
+Expected errors: 400 invalid input, 401 unauthenticated, 403 non-OPERATOR, 404 missing parcel, and 500 internal failure.
+
+The browser uses separate Next.js cookie-session POST routes rather than exposing Bearer tokens. See the [frontend routes and session API reference](../../client/docs/OPERATOR_INCOMING_PARCELS.md#browser-session-api-reference) for `/api/session/operator/orders` and `/api/session/operator/orders/detail`. These are served by the frontend, not this Express server.
 
 Public does not mean unrestricted: auth endpoints are rate limited. All POST bodies
 use strict Zod schemas and reject unknown fields. Email is trimmed, lowercased and

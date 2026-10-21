@@ -1,5 +1,6 @@
 import { RoleGuard } from "@/features/auth/components/role-guard";
-import { DashboardShell } from "@/features/auth/components/dashboard-shell";
+import { Suspense } from "react";
+import { OperatorLayout } from "@/features/operator/components/operator-layout";
 export default function Layout({ children }: { children: React.ReactNode }) {
- return <RoleGuard role="OPERATOR"><DashboardShell role="OPERATOR">{children}</DashboardShell></RoleGuard>;
+ return <Suspense fallback={<p role="status">Checking your session…</p>}><RoleGuard role="OPERATOR"><OperatorLayout>{children}</OperatorLayout></RoleGuard></Suspense>;
 }

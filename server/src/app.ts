@@ -2,6 +2,8 @@ import express from "express";
 import { authRouter } from "./modules/auth/auth.router";
 import { userRouter } from "./modules/users/user.router";
 import { orderRouter } from "./modules/orders/order.router";
+import { smeRouter } from "./modules/orders/sme.router";
+import { operatorRouter } from "./modules/operator/operator.router";
 import { riderRouter } from "./modules/riders/rider.router";
 import { errorHandler } from "./middleware/error-handler";
 import { notFound } from "./middleware/not-found";
@@ -22,6 +24,8 @@ app.get("/health", (_request, response) => {
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
+app.use("/api/sme", smeRouter);
+app.use("/api/operator", operatorRouter);
 app.use("/api/riders", riderRouter);
 app.use(notFound);
 app.use(errorHandler);

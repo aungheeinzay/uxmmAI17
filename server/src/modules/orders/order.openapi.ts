@@ -14,14 +14,14 @@ const createExample = {
   codAmount: "25000.00",
   senderName: "Example Shop",
   deliveryInstructions: "Please call before delivery.",
-  deliveryServiceId: "550e8400-e29b-41d4-a716-446655440000",
+  operatorId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
 const createdExample = {
   id: "660e8400-e29b-41d4-a716-446655440000",
   orderCode: "POA1B2C3D4E5F678",
   ownerId: "550e8400-e29b-41d4-a716-446655440000",
-  deliveryServiceId: createExample.deliveryServiceId,
+  operatorId: createExample.operatorId,
   recipientName: createExample.recipientName,
   phoneNumber: createExample.phoneNumber,
   township: createExample.township,
@@ -45,6 +45,16 @@ const orderQrExample = {
   id: createdExample.id,
   orderCode: createdExample.orderCode,
   qr: createdExample.qr,
+};
+
+const dashboardExample = {
+  totalParcels: 0,
+  statusCounts: Object.fromEntries(statusValues.map((status) => [status, 0])),
+  deliveryOverview: {
+    thisWeek: { startsAt: "2026-10-19T00:00:00.000Z", endsAt: "2026-10-21T00:00:00.000Z", totalShipments: 0, totalDelivered: 0, successRate: 0 },
+    thisMonth: { startsAt: "2026-10-01T00:00:00.000Z", endsAt: "2026-10-21T00:00:00.000Z", totalShipments: 0, totalDelivered: 0, successRate: 0 },
+  },
+  recentOrders: [],
 };
 
 // The status-update response is the full parcel detail plus the status it moved from.
@@ -82,16 +92,110 @@ export const orderSchemas = {
       qr: ref("ParcelQr"),
     },
   },
+  DashboardPeriod: {
+    type: "object",
+    required: ["startsAt", "endsAt", "totalShipments", "totalDelivered", "successRate"],
+    properties: {
+      startsAt: { type: "string", format: "date-time" },
+      endsAt: { type: "string", format: "date-time" },
+      totalShipments: { type: "integer", minimum: 0 },
+      totalDelivered: { type: "integer", minimum: 0 },
+      successRate: { type: "number", minimum: 0, maximum: 100, description: "Delivered shipments divided by period shipments, as a percentage." },
+    },
+  },
+  DashboardTimelineEntry: {
+    type: "object",
+    required: ["status", "previousStatus", "note", "createdAt", "actor"],
+    properties: {
+      status: { type: "string", enum: statusValues },
+      previousStatus: { type: "string", enum: statusValues, nullable: true },
+      note: { type: "string", nullable: true },
+      createdAt: { type: "string", format: "date-time" },
+      actor: {
+        type: "object",
+        nullable: true,
+        required: ["id", "fullName", "role"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          fullName: { type: "string", nullable: true },
+          role: { type: "string", enum: ["SME", "OPERATOR", "RIDER"] },
+        },
+      },
+    },
+  },
+  DashboardRecentOrder: {
+    type: "object",
+    required: ["id", "orderCode", "recipient", "parcel", "status", "createdAt", "trackingTimeline", "qr", "operator", "deliveryRider"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      recipient: {
+        type: "object",
+        required: ["name", "phoneNumber", "township", "deliveryAddress"],
+        properties: {
+          name: { type: "string" },
+          phoneNumber: { type: "string" },
+          township: { type: "string" },
+          deliveryAddress: { type: "string" },
+        },
+      },
+      parcel: {
+        type: "object",
+        required: ["weight", "weightUnit", "codAmount", "currency", "deliveryInstructions"],
+        properties: {
+          weight: { type: "string" },
+          weightUnit: { type: "string", enum: ["kg"] },
+          codAmount: { type: "string" },
+          currency: { type: "string" },
+          deliveryInstructions: { type: "string", nullable: true },
+        },
+      },
+      status: { type: "string", enum: statusValues },
+      createdAt: { type: "string", format: "date-time" },
+      trackingTimeline: { type: "array", items: ref("DashboardTimelineEntry") },
+      qr: ref("ParcelQr"),
+      operator: {
+        type: "object",
+        nullable: true,
+        required: ["id", "fullName", "phone"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          fullName: { type: "string", nullable: true },
+          phone: { type: "string", nullable: true },
+        },
+      },
+      deliveryRider: { type: "object", nullable: true, description: "Always null until rider assignment is implemented." },
+    },
+  },
+  OrderDashboard: {
+    type: "object",
+    required: ["totalParcels", "statusCounts", "deliveryOverview", "recentOrders"],
+    properties: {
+      totalParcels: { type: "integer", minimum: 0 },
+      statusCounts: {
+        type: "object",
+        required: statusValues,
+        properties: Object.fromEntries(statusValues.map((status) => [status, { type: "integer", minimum: 0 }])),
+      },
+      deliveryOverview: {
+        type: "object",
+        required: ["thisWeek", "thisMonth"],
+        properties: { thisWeek: ref("DashboardPeriod"), thisMonth: ref("DashboardPeriod") },
+      },
+      recentOrders: { type: "array", maxItems: 5, items: ref("DashboardRecentOrder") },
+    },
+  },
   ListedOrder: {
     type: "object",
     required: [
       "id", "orderCode", "recipientName", "phoneNumber", "township", "deliveryAddress",
       "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "senderName", "status",
-      "createdAt", "deliveryService",
+      "createdAt", "operatorId", "operator",
     ],
     properties: {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
+      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -103,10 +207,14 @@ export const orderSchemas = {
       senderName: { type: "string" },
       status: { type: "string", enum: statusValues },
       createdAt: { type: "string", format: "date-time" },
-      deliveryService: {
+      operator: {
         type: "object",
-        required: ["id", "name"],
-        properties: { id: { type: "string", format: "uuid" }, name: { type: "string" } },
+        required: ["id", "fullName"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          fullName: { type: "string", nullable: true },
+        },
+        nullable: true,
       },
     },
   },
@@ -130,7 +238,7 @@ export const orderSchemas = {
   CreatedOrder: {
     type: "object",
     required: [
-      "id", "orderCode", "ownerId", "deliveryServiceId", "recipientName", "phoneNumber",
+      "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt", "qr",
     ],
@@ -138,7 +246,7 @@ export const orderSchemas = {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
-      deliveryServiceId: { type: "string", format: "uuid" },
+      operatorId: { type: "string", format: "uuid" },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -158,16 +266,16 @@ export const orderSchemas = {
   OrderDetail: {
     type: "object",
     required: [
-      "id", "orderCode", "ownerId", "deliveryServiceId", "recipientName", "phoneNumber",
+      "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
-      "owner", "deliveryService",
+      "owner", "operator",
     ],
     properties: {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
-      deliveryServiceId: { type: "string", format: "uuid" },
+      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -191,14 +299,15 @@ export const orderSchemas = {
           phone: { type: "string", nullable: true },
         },
       },
-      deliveryService: {
+      operator: {
         type: "object",
-        required: ["id", "name", "isActive"],
+        required: ["id", "fullName", "phone"],
         properties: {
           id: { type: "string", format: "uuid" },
-          name: { type: "string" },
-          isActive: { type: "boolean" },
+          fullName: { type: "string", nullable: true },
+          phone: { type: "string", nullable: true },
         },
+        nullable: true,
       },
     },
   },
@@ -219,7 +328,8 @@ const listedExample = {
   senderName: createdExample.senderName,
   status: "CREATED",
   createdAt: createdExample.createdAt,
-  deliveryService: { id: createExample.deliveryServiceId, name: "Test Carrier" },
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator" },
 };
 
 const listExample = {
@@ -230,12 +340,13 @@ const listExample = {
 const orderDetailExample = {
   ...createdExample,
   owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
-  deliveryService: { id: createExample.deliveryServiceId, name: "Test Carrier", isActive: true },
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
 };
 
 const statusUpdateExample = {
   status: "PICKED_UP",
-  note: "Parcel handed over to the delivery service",
+  note: "Parcel handed over to the assigned Operator",
 };
 
 const updatedOrderDetailExample = {
@@ -246,6 +357,17 @@ const updatedOrderDetailExample = {
 };
 
 export const orderPaths = {
+  "/api/sme/dashboard": {
+    get: {
+      operationId: "getOrderDashboard", tags: ["SME"], summary: "Get the authenticated SME's dashboard",
+      description: "Returns parcel totals and status counts for the authenticated SME, plus current-week and current-month shipment cohorts based on order creation time. Periods use UTC and begin Monday/month-start; successRate is delivered divided by created shipments as a percentage. Includes at most five recent parcels with their status event timeline, QR PNG data URL and assigned Operator. Rider assignment is not represented in the current data model, so deliveryRider is null.",
+      security: bearerSecurity,
+      responses: {
+        200: response("SME order dashboard", successSchema(ref("OrderDashboard")), { success: true, data: dashboardExample }),
+        ...errorResponses([401, 403, 500], { 403: ["FORBIDDEN", "Insufficient permissions."] }),
+      },
+    },
+  },
   "/api/orders": {
     get: {
       operationId: "listOrders", tags: ["Orders"], summary: "List the authenticated SME's parcels",
@@ -266,14 +388,14 @@ export const orderPaths = {
     },
     post: {
       operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
-      description: "Authenticated SME users create an order for their own profile. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
+      description: "Authenticated SME users create an order for their own profile and assign it to an existing OPERATOR profile using operatorId. The server validates the target profile role and persists the operator profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
       security: bearerSecurity,
       requestBody: requestBody(ref("CreateOrderInput"), createExample),
       responses: {
         201: response("Created order", successSchema(ref("CreatedOrder")), { success: true, data: createdExample }),
         ...errorResponses([400, 401, 403, 404, 409, 500], {
           403: ["FORBIDDEN", "Insufficient permissions."],
-          404: ["DELIVERY_SERVICE_UNAVAILABLE", "Delivery service is not available."],
+          404: ["OPERATOR_NOT_AVAILABLE", "Operator is not available."],
           409: ["ORDER_CREATE_FAILED", "Unable to create the order. Try again."],
         }),
       },
@@ -282,7 +404,7 @@ export const orderPaths = {
   "/api/orders/{id}": {
     get: {
       operationId: "getOrder", tags: ["Orders"], summary: "Get parcel details",
-      description: "Returns the complete detail of one parcel owned by the authenticated SME. The path identifier is either the parcel's UUID id or its order code (PO followed by 16 uppercase hex characters). Access is enforced inside the database lookup: a parcel belonging to another SME is reported exactly like a missing parcel, so its existence is never revealed. Delivery instructions, COD, timestamps, the owner's profile and the assigned delivery service are included.",
+      description: "Returns the complete detail of one parcel owned by the authenticated SME. The path identifier is either the parcel's UUID id or its order code (PO followed by 16 uppercase hex characters). Access is enforced inside the database lookup: a parcel belonging to another SME is reported exactly like a missing parcel, so its existence is never revealed. Delivery instructions, COD, timestamps, the owner's profile and assigned Operator are included.",
       security: bearerSecurity,
       parameters: [
         { name: "id", in: "path", required: true, schema: { type: "string", maxLength: 64 }, description: "Parcel UUID id or order code (PO + 16 uppercase hex characters, case-insensitive). Anything else is rejected with 400." },

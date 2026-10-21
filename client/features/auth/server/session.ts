@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { invitationResponseSchema } from "@/features/riders/api/rider.api";
 import { z } from "zod";
+import { profileUpdateSchema } from "@/features/profile/schemas/profile.schema";
+import { authUserSchema } from "../schemas/auth.schema";
 import { loginSchema } from "../schemas/auth.schema";
 import { currentProfile, exchangeTokens, expressAuth, SessionError, type Tokens } from "./express-auth";
 
@@ -85,6 +87,23 @@ async function authenticated(request: NextRequest) {
   return { user, accessToken: tokens.accessToken, tokens };
 }
 
+// Reuse the existing cookie/rotation boundary for feature-specific read requests.
+export async function withAuthenticatedSession(request: NextRequest,
+  read: (session: { user: z.infer<typeof authUserSchema>; accessToken: string }) => Promise<unknown>) {
+  let rotated: Tokens | undefined;
+  try {
+    guard(request);
+    const session = await authenticated(request);
+    rotated = session.tokens;
+    const response = json(await read(session));
+    return rotated ? writeCookies(response, rotated) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return rotated && response.status !== 401 && !(error instanceof SessionError && error.code === "EMAIL_NOT_VERIFIED")
+      ? writeCookies(response, rotated) : response;
+  }
+}
+
 export async function loginSession(request: NextRequest) {
   try {
     guard(request);
@@ -144,5 +163,27 @@ export async function inviteRiderSession(request: NextRequest) {
   } catch (error) {
     const response = errorResponse(error);
     return rotated && response.status !== 401 ? writeCookies(response, rotated) : response;
+  }
+}
+
+export async function updateProfileSession(request: NextRequest) {
+  let rotated: Tokens | undefined;
+  try {
+    guard(request);
+    const session = await authenticated(request);
+    rotated = session.tokens;
+    const text = await request.text();
+    if (text.length > 16384) throw new SessionError(413, "INVALID_REQUEST");
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { throw new SessionError(400, "VALIDATION_ERROR"); }
+    const input = profileUpdateSchema.safeParse(body);
+    if (!input.success) throw new SessionError(400, "VALIDATION_ERROR");
+    const result = z.object({ success: z.literal(true), data: authUserSchema }).safeParse(await expressAuth("/api/users/me", input.data, session.accessToken, "PATCH"));
+    if (!result.success || result.data.data.id !== session.user.id || result.data.data.role !== session.user.role) throw new SessionError(502, "INVALID_RESPONSE");
+    const response = json({ success: true, data: { user: result.data.data } });
+    return rotated ? writeCookies(response, rotated) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return rotated && response.status !== 401 && !(error instanceof SessionError && error.code === "EMAIL_NOT_VERIFIED") ? writeCookies(response, rotated) : response;
   }
 }

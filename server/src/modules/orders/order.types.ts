@@ -1,10 +1,10 @@
-import type { OrderStatus } from "../../generated/prisma/enums";
+import type { OrderStatus, Role } from "../../generated/prisma/enums";
 
 export type CreatedOrder = {
   id: string;
   orderCode: string;
   ownerId: string;
-  deliveryServiceId: string;
+  operatorId: string;
   recipientName: string;
   phoneNumber: string;
   township: string;
@@ -47,15 +47,16 @@ export type ListedOrder = {
   senderName: string;
   status: OrderStatus;
   createdAt: Date;
-  deliveryService: { id: string; name: string };
+  operatorId: string | null;
+  operator: { id: string; fullName: string | null } | null;
 };
 
-// Full parcel detail for one order the caller owns, including owner and delivery service.
+// Full parcel detail for one order the caller owns, including owner and Operator.
 export type OrderDetail = {
   id: string;
   orderCode: string;
   ownerId: string;
-  deliveryServiceId: string;
+  operatorId: string | null;
   recipientName: string;
   phoneNumber: string;
   township: string;
@@ -70,7 +71,7 @@ export type OrderDetail = {
   createdAt: Date;
   updatedAt: Date;
   owner: { id: string; fullName: string | null; phone: string | null };
-  deliveryService: { id: string; name: string; isActive: boolean };
+  operator: { id: string; fullName: string | null; phone: string | null } | null;
 };
 
 // Response of an accepted status change: the updated parcel plus the status it moved from.
@@ -84,4 +85,46 @@ export type OrderListResult = {
     total: number;
     totalPages: number;
   };
+};
+
+export type DashboardPeriod = {
+  startsAt: Date;
+  endsAt: Date;
+  totalShipments: number;
+  totalDelivered: number;
+  successRate: number;
+};
+
+export type DashboardTimelineEntry = {
+  status: OrderStatus;
+  previousStatus: OrderStatus | null;
+  note: string | null;
+  createdAt: Date;
+  actor: { id: string; fullName: string | null; role: Role } | null;
+};
+
+export type DashboardRecentOrder = {
+  id: string;
+  orderCode: string;
+  recipient: { name: string; phoneNumber: string; township: string; deliveryAddress: string };
+  parcel: {
+    weight: string;
+    weightUnit: "kg";
+    codAmount: string;
+    currency: string;
+    deliveryInstructions: string | null;
+  };
+  status: OrderStatus;
+  createdAt: Date;
+  trackingTimeline: DashboardTimelineEntry[];
+  qr: ParcelQr;
+  operator: { id: string; fullName: string | null; phone: string | null } | null;
+  deliveryRider: null;
+};
+
+export type OrderDashboard = {
+  totalParcels: number;
+  statusCounts: Record<OrderStatus, number>;
+  deliveryOverview: { thisWeek: DashboardPeriod; thisMonth: DashboardPeriod };
+  recentOrders: DashboardRecentOrder[];
 };

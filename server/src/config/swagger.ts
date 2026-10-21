@@ -5,19 +5,20 @@ import { authPaths, authSchemas } from "../modules/auth/auth.openapi";
 import { userPaths, userSchemas } from "../modules/users/user.openapi";
 import { riderPaths, riderSchemas } from "../modules/riders/rider.openapi";
 import { orderPaths, orderSchemas } from "../modules/orders/order.openapi";
+import { operatorPaths, operatorSchemas } from "../modules/operator/operator.openapi";
 import { errorSchema, response } from "../lib/openapi";
 
 export const openApiDocument = {
   openapi: "3.0.3",
   info: { title: "ParcelOps AI API", version: "1.0.0", description: "Database-backed authentication and profiles. Use an opaque access token with Authorize; refresh tokens belong in the refresh request body." },
   servers: [{ url: "/", description: "Current server" }],
-  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "Orders" }, { name: "Riders" }, { name: "Health" }],
+  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "Orders" }, { name: "SME" }, { name: "Operator" }, { name: "Riders" }, { name: "Health" }],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas },
+    schemas: { Error: errorSchema, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas },
   },
   paths: {
-    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths,
+    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...operatorPaths,
     "/health": { get: {
       operationId: "health", tags: ["Health"], summary: "Check server health",
       description: "Returns process availability; does not check the database.", security: [],

@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import { AppError } from "../../lib/errors/app-error";
-import type { OrderStatus } from "../../generated/prisma/enums";
+import { OrderStatus } from "../../generated/prisma/enums";
 import * as userService from "../users/user.service";
 import * as repository from "./order.repository";
 import type { CreateOrderInput, ListOrdersQuery, OrderIdentifier, UpdateOrderStatusInput } from "./order.validation";
-import type { CreatedOrder, ListedOrder, OrderDetail, OrderListResult, OrderQr, UpdatedOrderDetail } from "./order.types";
+import type { CreatedOrder, DashboardPeriod, DashboardRecentOrder, DashboardTimelineEntry, ListedOrder, OrderDashboard, OrderDetail, OrderListResult, OrderQr, UpdatedOrderDetail } from "./order.types";
 
 export function generateOrderCode() {
   return `PO${randomBytes(8).toString("hex").toUpperCase()}`;
@@ -27,12 +27,12 @@ async function generateQrImageDataUrl(identifier: string): Promise<string> {
   }
 }
 
-function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, qrImageDataUrl: string): CreatedOrder {
+function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, operatorId: string, qrImageDataUrl: string): CreatedOrder {
   return {
     id: order.id,
     orderCode: order.orderCode,
     ownerId: order.ownerId,
-    deliveryServiceId: order.deliveryServiceId,
+    operatorId,
     recipientName: order.recipientName,
     phoneNumber: order.phoneNumber,
     township: order.township,
@@ -52,9 +52,9 @@ function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, qr
 
 export async function createOrder(ownerId: string, input: CreateOrderInput): Promise<CreatedOrder> {
   await userService.getProfile(ownerId);
-  const deliveryService = await repository.findDeliveryService(input.deliveryServiceId);
-  if (!deliveryService?.isActive) {
-    throw new AppError(404, "DELIVERY_SERVICE_UNAVAILABLE", "Delivery service is not available.");
+  const operator = await repository.findOperator(input.operatorId);
+  if (!operator) {
+    throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
   }
   const deliveryInstructions = input.deliveryInstructions ? input.deliveryInstructions : null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -65,7 +65,7 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
         orderCode: generateOrderCode(),
         qrIdentifier,
         ownerId,
-        deliveryServiceId: deliveryService.id,
+        operatorId: operator.id,
         recipientName: input.recipientName,
         phoneNumber: input.phoneNumber,
         township: input.township,
@@ -75,10 +75,10 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
         senderName: input.senderName,
         deliveryInstructions,
       });
-      return serialize(order, qrImageDataUrl);
+      return serialize(order, operator.id, qrImageDataUrl);
     } catch (error) {
       if (isForeignKeyConflict(error)) {
-        throw new AppError(404, "DELIVERY_SERVICE_UNAVAILABLE", "Delivery service is not available.");
+        throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
       }
       if (isUniqueConflict(error)) {
         if (attempt < 4) continue;
@@ -113,7 +113,7 @@ function serializeDetail(order: OrderDetailRow): OrderDetail {
     id: order.id,
     orderCode: order.orderCode,
     ownerId: order.ownerId,
-    deliveryServiceId: order.deliveryServiceId,
+    operatorId: order.operatorId,
     recipientName: order.recipientName,
     phoneNumber: order.phoneNumber,
     township: order.township,
@@ -128,7 +128,7 @@ function serializeDetail(order: OrderDetailRow): OrderDetail {
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     owner: order.owner,
-    deliveryService: order.deliveryService,
+    operator: order.operator,
   };
 }
 
@@ -205,7 +205,8 @@ function serializeListed(order: ListedOrderRow): ListedOrder {
     senderName: order.senderName,
     status: order.status,
     createdAt: order.createdAt,
-    deliveryService: order.deliveryService,
+    operatorId: order.operatorId,
+    operator: order.operator,
   };
 }
 
@@ -223,5 +224,95 @@ export async function listOrders(ownerId: string, query: ListOrdersQuery): Promi
       total,
       totalPages: total === 0 ? 0 : Math.ceil(total / query.pageSize),
     },
+  };
+}
+
+function startOfUtcWeek(date: Date) {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+  return start;
+}
+
+function startOfUtcMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function calculateSuccessRate(totalShipments: number, totalDelivered: number) {
+  return totalShipments === 0 ? 0 : Math.round((totalDelivered / totalShipments) * 10000) / 100;
+}
+
+type DashboardRows = Awaited<ReturnType<typeof repository.getDashboardData>>;
+
+function serializeDashboardRecentOrder(order: DashboardRows[6][number], imageDataUrl: string): DashboardRecentOrder {
+  const trackingTimeline: DashboardTimelineEntry[] = [
+    {
+      status: OrderStatus.CREATED,
+      previousStatus: null,
+      note: null,
+      createdAt: order.createdAt,
+      actor: order.owner,
+    },
+    ...order.statusEvents,
+  ];
+
+  return {
+    id: order.id,
+    orderCode: order.orderCode,
+    recipient: {
+      name: order.recipientName,
+      phoneNumber: order.phoneNumber,
+      township: order.township,
+      deliveryAddress: order.deliveryAddress,
+    },
+    parcel: {
+      weight: order.parcelWeightKg.toString(),
+      weightUnit: "kg",
+      codAmount: order.codAmount.toString(),
+      currency: order.currency,
+      deliveryInstructions: order.deliveryInstructions,
+    },
+    status: order.status,
+    createdAt: order.createdAt,
+    trackingTimeline,
+    qr: { identifier: order.qrIdentifier, imageDataUrl },
+    operator: order.operator,
+    deliveryRider: null,
+  };
+}
+
+export async function getOrderDashboard(ownerId: string): Promise<OrderDashboard> {
+  await userService.getProfile(ownerId);
+  const now = new Date();
+  const weekStart = startOfUtcWeek(now);
+  const monthStart = startOfUtcMonth(now);
+  const [totalParcels, groupedStatuses, weekShipments, weekDelivered, monthShipments, monthDelivered, recentRows] =
+    await repository.getDashboardData(ownerId, weekStart, monthStart, now);
+
+  const statusCounts = Object.fromEntries(Object.values(OrderStatus).map((status) => [status, 0])) as Record<OrderStatus, number>;
+  for (const group of groupedStatuses) {
+    statusCounts[group.status] = typeof group._count === "object" && group._count !== null ? group._count._all ?? 0 : 0;
+  }
+
+  const period = (startsAt: Date, totalShipments: number, totalDelivered: number): DashboardPeriod => ({
+    startsAt,
+    endsAt: now,
+    totalShipments,
+    totalDelivered,
+    successRate: calculateSuccessRate(totalShipments, totalDelivered),
+  });
+
+  const recentOrders = await Promise.all(recentRows.map(async (order) => {
+    const imageDataUrl = await generateQrImageDataUrl(order.qrIdentifier);
+    return serializeDashboardRecentOrder(order, imageDataUrl);
+  }));
+
+  return {
+    totalParcels,
+    statusCounts,
+    deliveryOverview: {
+      thisWeek: period(weekStart, weekShipments, weekDelivered),
+      thisMonth: period(monthStart, monthShipments, monthDelivered),
+    },
+    recentOrders,
   };
 }
