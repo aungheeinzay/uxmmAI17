@@ -35,10 +35,10 @@ it("shows profile settings and reuses session logout", async () => {
  await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
  expect(useAuthStore.getState().user).toBeNull(); expect(fetch).toHaveBeenCalledWith("/api/session/logout", expect.anything());
 });
-it("uses explicit unavailable metrics and functional quick action destinations", () => {
- render(<OperatorDashboard />); expect(screen.getAllByText("Not connected")).toHaveLength(4);
+it("uses explicit unavailable operational metrics and functional quick action destinations", () => {
+ render(<OperatorDashboard />); expect(screen.getAllByText("Not connected")).toHaveLength(3);
  expect(screen.getByRole("link", { name: "Manage Riders" }).getAttribute("href")).toBe("/operator/riders");
- expect(screen.getAllByText("No data available")).toHaveLength(2);
+ expect(screen.getAllByText("No data available")).toHaveLength(1);
 });
 it("loads profile, saves editable fields only and updates shared UI identity", async () => {
  useAuthStore.getState().setUser(user);

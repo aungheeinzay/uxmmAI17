@@ -8,6 +8,7 @@ Follow the existing architecture, prioritize simple and secure solutions, and av
 
 This is a 48-hour AI-native Buildathon MVP.
 
+
 ## 2. Tech Stack
 
 - Node.js
@@ -179,7 +180,24 @@ Use Supabase for two separate responsibilities:
 - Future orders and delivery records
 
 Do not store user passwords in Prisma models.
+## Role-Based Authorization Rules
 
+Before implementing or modifying authentication,
+authorization, orders, warehouse, rider assignments,
+or delivery status workflows:
+
+1. Read `./PERMISSIONS.md` completely.
+2. Treat `PERMISSIONS.md` as the authoritative source
+   for role permissions and order status transitions.
+3. Enforce permissions in Express middleware and
+   service-level business logic.
+4. Never weaken existing authentication or authorization.
+5. If the implementation conflicts with PERMISSIONS.md,
+   report the conflict before changing shared contracts.
+6. Update tests and Swagger documentation when
+   implementing approved permission changes.
+
+These rules apply to SME, OPERATOR, and RIDER modules.
 ### Identity and Profiles
 
 - Supabase Auth manages `auth.users`.

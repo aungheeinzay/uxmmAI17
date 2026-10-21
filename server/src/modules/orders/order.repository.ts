@@ -9,7 +9,7 @@ const orderDetailSelect = {
   id: true,
   orderCode: true,
   ownerId: true,
-  deliveryServiceId: true,
+  operatorId: true,
   recipientName: true,
   phoneNumber: true,
   township: true,
@@ -23,14 +23,14 @@ const orderDetailSelect = {
   createdAt: true,
   updatedAt: true,
   owner: { select: { id: true, fullName: true, phone: true } },
-  deliveryService: { select: { id: true, name: true, isActive: true } },
+  operator: { select: { id: true, fullName: true, phone: true } },
 } as const satisfies Prisma.ParcelOrderSelect;
 
 export type OrderCreateRecord = {
   orderCode: string;
   qrIdentifier: string;
+  operatorId: string;
   ownerId: string;
-  deliveryServiceId: string;
   recipientName: string;
   phoneNumber: string;
   township: string;
@@ -81,13 +81,59 @@ export function listOrders(filters: OrderListFilters) {
       senderName: true,
       status: true,
       createdAt: true,
-      deliveryService: { select: { id: true, name: true } },
+      operatorId: true,
+      operator: { select: { id: true, fullName: true } },
     },
   });
 }
 
 export function countOrders(filters: Pick<OrderListFilters, "ownerId" | "search" | "status">) {
   return prisma.parcelOrder.count({ where: buildWhere(filters) });
+}
+
+export function getDashboardData(ownerId: string, weekStart: Date, monthStart: Date, now: Date) {
+  const weekWhere = { ownerId, createdAt: { gte: weekStart, lt: now } };
+  const monthWhere = { ownerId, createdAt: { gte: monthStart, lt: now } };
+  return prisma.$transaction([
+    prisma.parcelOrder.count({ where: { ownerId } }),
+    prisma.parcelOrder.groupBy({ by: ["status"], where: { ownerId }, orderBy: { status: "asc" }, _count: { _all: true } }),
+    prisma.parcelOrder.count({ where: weekWhere }),
+    prisma.parcelOrder.count({ where: { ...weekWhere, status: "DELIVERED" } }),
+    prisma.parcelOrder.count({ where: monthWhere }),
+    prisma.parcelOrder.count({ where: { ...monthWhere, status: "DELIVERED" } }),
+    prisma.parcelOrder.findMany({
+      where: { ownerId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 5,
+      select: {
+        id: true,
+        orderCode: true,
+        recipientName: true,
+        phoneNumber: true,
+        township: true,
+        deliveryAddress: true,
+        parcelWeightKg: true,
+        codAmount: true,
+        currency: true,
+        deliveryInstructions: true,
+        qrIdentifier: true,
+        status: true,
+        createdAt: true,
+        owner: { select: { id: true, fullName: true, role: true } },
+        operator: { select: { id: true, fullName: true, phone: true } },
+        statusEvents: {
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: {
+            status: true,
+            previousStatus: true,
+            note: true,
+            createdAt: true,
+            actor: { select: { id: true, fullName: true, role: true } },
+          },
+        },
+      },
+    }),
+  ]);
 }
 
 // Runs the page query and the matching count in one transaction so both share a consistent snapshot.
@@ -151,10 +197,10 @@ export function updateOrderStatus(data: OrderStatusUpdateRecord) {
   });
 }
 
-export function findDeliveryService(id: string) {
-  return prisma.deliveryService.findUnique({
-    where: { id },
-    select: { id: true, isActive: true },
+export function findOperator(id: string) {
+  return prisma.profile.findFirst({
+    where: { id, role: "OPERATOR" },
+    select: { id: true },
   });
 }
 
@@ -163,8 +209,8 @@ export function createOrder(data: OrderCreateRecord) {
     data: {
       orderCode: data.orderCode,
       qrIdentifier: data.qrIdentifier,
+      operatorId: data.operatorId,
       ownerId: data.ownerId,
-      deliveryServiceId: data.deliveryServiceId,
       recipientName: data.recipientName,
       phoneNumber: data.phoneNumber,
       township: data.township,

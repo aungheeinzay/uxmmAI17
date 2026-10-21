@@ -87,6 +87,23 @@ async function authenticated(request: NextRequest) {
   return { user, accessToken: tokens.accessToken, tokens };
 }
 
+// Reuse the existing cookie/rotation boundary for feature-specific read requests.
+export async function withAuthenticatedSession(request: NextRequest,
+  read: (session: { user: z.infer<typeof authUserSchema>; accessToken: string }) => Promise<unknown>) {
+  let rotated: Tokens | undefined;
+  try {
+    guard(request);
+    const session = await authenticated(request);
+    rotated = session.tokens;
+    const response = json(await read(session));
+    return rotated ? writeCookies(response, rotated) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return rotated && response.status !== 401 && !(error instanceof SessionError && error.code === "EMAIL_NOT_VERIFIED")
+      ? writeCookies(response, rotated) : response;
+  }
+}
+
 export async function loginSession(request: NextRequest) {
   try {
     guard(request);

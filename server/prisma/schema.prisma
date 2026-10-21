@@ -24,6 +24,7 @@ model Profile {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   orders    ParcelOrder[]
+  operatorOrders ParcelOrder[] @relation("OrderOperator")
   statusEvents OrderStatusEvent[]
 
   @@map("profiles")
@@ -93,19 +94,6 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
-// Catalog of delivery companies/services. Eligibility for Feature 1 is isActive.
-model DeliveryService {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @db.VarChar(120)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  orders    ParcelOrder[]
-
-  @@index([isActive])
-  @@map("delivery_services")
-}
-
 enum OrderStatus {
   CREATED
   PICKED_UP
@@ -124,8 +112,8 @@ model ParcelOrder {
   qrIdentifier          String          @unique @map("qr_identifier") @db.VarChar(64)
   ownerId               String          @map("owner_id") @db.Uuid
   owner                 Profile         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  deliveryServiceId     String          @map("delivery_service_id") @db.Uuid
-  deliveryService       DeliveryService @relation(fields: [deliveryServiceId], references: [id], onDelete: Restrict)
+  operatorId            String?         @map("operator_id") @db.Uuid
+  operator              Profile?        @relation("OrderOperator", fields: [operatorId], references: [id], onDelete: Restrict)
   recipientName         String          @map("recipient_name") @db.VarChar(120)
   phoneNumber           String          @map("phone_number") @db.VarChar(32)
   township              String          @db.VarChar(120)
@@ -141,7 +129,7 @@ model ParcelOrder {
   statusEvents          OrderStatusEvent[]
 
   @@index([ownerId])
-  @@index([deliveryServiceId])
+  @@index([operatorId])
   @@map("orders")
 }
 

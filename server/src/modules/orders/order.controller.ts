@@ -22,6 +22,11 @@ export const list = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const dashboard = asyncHandler(async (req, res) => {
+  const data = await service.getOrderDashboard(req.auth!.id);
+  res.json({ success: true, data });
+});
+
 export const updateStatus = asyncHandler(async (req, res) => {
   const data = await service.updateOrderStatus(
     req.auth!.id,

@@ -1,2 +1,3 @@
-import { OperatorPlaceholder } from "@/features/operator/components/operator-placeholder";
-export default function Page() { return <OperatorPlaceholder title="Incoming Parcels" description="Parcel receiving and incoming parcel lists will be available in a future release." />; }
+import { Suspense } from "react";
+import { IncomingParcels } from "@/features/operator/components/incoming-parcels";
+export default function Page() { return <Suspense fallback={<p role="status">Loading parcels…</p>}><IncomingParcels /></Suspense>; }
