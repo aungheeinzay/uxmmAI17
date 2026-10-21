@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { requireAuth } from "../../lib/middleware/require-auth";
-import { requireRole } from "../../lib/middleware/require-role";
+import { requireAuth } from "../../middleware/require-auth";
+import { requireRole } from "../../middleware/require-role";
 import * as controller from "./order.controller";
 
 export const orderRouter = Router();

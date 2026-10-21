@@ -1,4 +1,4 @@
-import { asyncHandler } from "../../lib/errors/error-handler";
+import { asyncHandler } from "../../middleware/async-handler";
 import * as service from "./order.service";
 import { createOrderSchema, listOrdersQuerySchema, orderIdentifierSchema, updateOrderStatusSchema } from "./order.validation";
 
