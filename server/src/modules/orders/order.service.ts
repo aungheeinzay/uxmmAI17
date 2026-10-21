@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { AppError } from "../../lib/errors/app-error";
 import type { OrderStatus } from "../../generated/prisma/enums";
 import * as userService from "../users/user.service";
 import * as repository from "./order.repository";
 import type { CreateOrderInput, ListOrdersQuery, OrderIdentifier, UpdateOrderStatusInput } from "./order.validation";
-import type { CreatedOrder, ListedOrder, OrderDetail, OrderListResult, UpdatedOrderDetail } from "./order.types";
+import type { CreatedOrder, ListedOrder, OrderDetail, OrderListResult, OrderQr, UpdatedOrderDetail } from "./order.types";
 
 export function generateOrderCode() {
   return `PO${randomBytes(8).toString("hex").toUpperCase()}`;
@@ -18,7 +19,15 @@ function isForeignKeyConflict(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2003";
 }
 
-function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>): CreatedOrder {
+async function generateQrImageDataUrl(identifier: string): Promise<string> {
+  try {
+    return await QRCode.toDataURL(identifier, { errorCorrectionLevel: "M", type: "image/png" });
+  } catch {
+    throw new AppError(500, "QR_GENERATION_FAILED", "Unable to generate the parcel QR code.");
+  }
+}
+
+function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, qrImageDataUrl: string): CreatedOrder {
   return {
     id: order.id,
     orderCode: order.orderCode,
@@ -37,6 +46,7 @@ function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>): C
     status: order.status,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    qr: { identifier: order.qrIdentifier, imageDataUrl: qrImageDataUrl },
   };
 }
 
@@ -48,9 +58,12 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
   }
   const deliveryInstructions = input.deliveryInstructions ? input.deliveryInstructions : null;
   for (let attempt = 0; attempt < 5; attempt++) {
+    const qrIdentifier = randomBytes(32).toString("hex");
+    const qrImageDataUrl = await generateQrImageDataUrl(qrIdentifier);
     try {
       const order = await repository.createOrder({
         orderCode: generateOrderCode(),
+        qrIdentifier,
         ownerId,
         deliveryServiceId: deliveryService.id,
         recipientName: input.recipientName,
@@ -62,16 +75,36 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
         senderName: input.senderName,
         deliveryInstructions,
       });
-      return serialize(order);
+      return serialize(order, qrImageDataUrl);
     } catch (error) {
       if (isForeignKeyConflict(error)) {
         throw new AppError(404, "DELIVERY_SERVICE_UNAVAILABLE", "Delivery service is not available.");
       }
-      if (isUniqueConflict(error) && attempt < 4) continue;
+      if (isUniqueConflict(error)) {
+        if (attempt < 4) continue;
+        throw new AppError(409, "ORDER_CREATE_FAILED", "Unable to create the order. Try again.");
+      }
       throw error;
     }
   }
   throw new AppError(409, "ORDER_CREATE_FAILED", "Unable to create the order. Try again.");
+}
+
+export async function getOrderQr(ownerId: string, identifier: OrderIdentifier): Promise<OrderQr> {
+  await userService.getProfile(ownerId);
+  const order = await repository.findOrderQrForOwner(ownerId, identifier);
+  if (!order) throw new AppError(404, "ORDER_NOT_FOUND", "Parcel not found.");
+  if (!/^[a-f0-9]{64}$/.test(order.qrIdentifier)) {
+    throw new AppError(500, "QR_CODE_UNAVAILABLE", "The parcel QR code is unavailable.");
+  }
+  return {
+    id: order.id,
+    orderCode: order.orderCode,
+    qr: {
+      identifier: order.qrIdentifier,
+      imageDataUrl: await generateQrImageDataUrl(order.qrIdentifier),
+    },
+  };
 }
 
 type OrderDetailRow = NonNullable<Awaited<ReturnType<typeof repository.findOrderForOwner>>>;

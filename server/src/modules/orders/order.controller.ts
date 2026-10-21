@@ -12,6 +12,11 @@ export const detail = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const qr = asyncHandler(async (req, res) => {
+  const data = await service.getOrderQr(req.auth!.id, orderIdentifierSchema.parse(req.params.id));
+  res.json({ success: true, data });
+});
+
 export const list = asyncHandler(async (req, res) => {
   const data = await service.listOrders(req.auth!.id, listOrdersQuerySchema.parse(req.query));
   res.json({ success: true, data });

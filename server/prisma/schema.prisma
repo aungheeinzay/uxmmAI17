@@ -103,6 +103,7 @@ enum OrderStatus {
 model ParcelOrder {
   id                    String          @id @default(uuid()) @db.Uuid
   orderCode             String          @unique @map("order_code") @db.VarChar(32)
+  qrIdentifier          String          @unique @map("qr_identifier") @db.VarChar(64)
   ownerId               String          @map("owner_id") @db.Uuid
   owner                 Profile         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   deliveryServiceId     String          @map("delivery_service_id") @db.Uuid

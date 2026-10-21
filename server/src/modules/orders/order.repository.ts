@@ -28,6 +28,7 @@ const orderDetailSelect = {
 
 export type OrderCreateRecord = {
   orderCode: string;
+  qrIdentifier: string;
   ownerId: string;
   deliveryServiceId: string;
   recipientName: string;
@@ -106,6 +107,14 @@ export function findOrderForOwner(ownerId: string, identifier: OrderIdentifier) 
   });
 }
 
+export function findOrderQrForOwner(ownerId: string, identifier: OrderIdentifier) {
+  const matches = identifier.kind === "id" ? { id: identifier.value } : { orderCode: identifier.value };
+  return prisma.parcelOrder.findFirst({
+    where: { ownerId, ...matches },
+    select: { id: true, orderCode: true, qrIdentifier: true },
+  });
+}
+
 export type OrderStatusUpdateRecord = {
   orderId: string;
   ownerId: string;
@@ -153,6 +162,7 @@ export function createOrder(data: OrderCreateRecord) {
   return prisma.parcelOrder.create({
     data: {
       orderCode: data.orderCode,
+      qrIdentifier: data.qrIdentifier,
       ownerId: data.ownerId,
       deliveryServiceId: data.deliveryServiceId,
       recipientName: data.recipientName,

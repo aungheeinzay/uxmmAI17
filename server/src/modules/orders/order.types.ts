@@ -18,6 +18,18 @@ export type CreatedOrder = {
   status: OrderStatus;
   createdAt: Date;
   updatedAt: Date;
+  qr: ParcelQr;
+};
+
+export type ParcelQr = {
+  identifier: string;
+  imageDataUrl: string;
+};
+
+export type OrderQr = {
+  id: string;
+  orderCode: string;
+  qr: ParcelQr;
 };
 
 // Summary row for the parcel list. COD is kept separate from any delivery fee.

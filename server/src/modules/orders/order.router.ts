@@ -7,5 +7,6 @@ export const orderRouter = Router();
 orderRouter.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
 orderRouter.get("/", requireAuth, requireRole("SME"), controller.list);
 orderRouter.post("/", requireAuth, requireRole("SME"), controller.create);
+orderRouter.get("/:id/qr", requireAuth, requireRole("SME"), controller.qr);
 orderRouter.get("/:id", requireAuth, requireRole("SME"), controller.detail);
 orderRouter.patch("/:id/status", requireAuth, requireRole("SME"), controller.updateStatus);

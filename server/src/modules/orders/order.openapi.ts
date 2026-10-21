@@ -35,6 +35,16 @@ const createdExample = {
   status: "CREATED",
   createdAt: "2026-10-20T00:00:00.000Z",
   updatedAt: "2026-10-20T00:00:00.000Z",
+  qr: {
+    identifier: "a1b2c3d4e5f678901234567890abcdefa1b2c3d4e5f678901234567890abcdef",
+    imageDataUrl: "data:image/png;base64,<png-base64>",
+  },
+};
+
+const orderQrExample = {
+  id: createdExample.id,
+  orderCode: createdExample.orderCode,
+  qr: createdExample.qr,
 };
 
 // The status-update response is the full parcel detail plus the status it moved from.
@@ -55,6 +65,23 @@ export const orderSchemas = {
   CreateOrderInput: inputSchema(createOrderSchema),
   ListOrdersQuery: inputSchema(listOrdersQuerySchema),
   UpdateOrderStatusInput: inputSchema(updateOrderStatusSchema),
+  ParcelQr: {
+    type: "object",
+    required: ["identifier", "imageDataUrl"],
+    properties: {
+      identifier: { type: "string", pattern: "^[a-f0-9]{64}$", description: "Opaque parcel identifier encoded in the QR image." },
+      imageDataUrl: { type: "string", pattern: "^data:image/png;base64,", description: "PNG QR image as a data URL." },
+    },
+  },
+  OrderQr: {
+    type: "object",
+    required: ["id", "orderCode", "qr"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      qr: ref("ParcelQr"),
+    },
+  },
   ListedOrder: {
     type: "object",
     required: [
@@ -105,7 +132,7 @@ export const orderSchemas = {
     required: [
       "id", "orderCode", "ownerId", "deliveryServiceId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
-      "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
+      "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt", "qr",
     ],
     properties: {
       id: { type: "string", format: "uuid" },
@@ -125,6 +152,7 @@ export const orderSchemas = {
       status: { type: "string", enum: ["CREATED"] },
       createdAt: { type: "string", format: "date-time" },
       updatedAt: { type: "string", format: "date-time" },
+      qr: ref("ParcelQr"),
     },
   },
   OrderDetail: {
@@ -238,7 +266,7 @@ export const orderPaths = {
     },
     post: {
       operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
-      description: "Authenticated SME users create an order for their own profile. Ownership, status, order code, currency and timestamps are assigned on the server. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
+      description: "Authenticated SME users create an order for their own profile. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
       security: bearerSecurity,
       requestBody: requestBody(ref("CreateOrderInput"), createExample),
       responses: {
@@ -261,6 +289,23 @@ export const orderPaths = {
       ],
       responses: {
         200: response("Parcel details", successSchema(ref("OrderDetail")), { success: true, data: orderDetailExample }),
+        ...errorResponses([400, 401, 403, 404, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+          404: ["ORDER_NOT_FOUND", "Parcel not found."],
+        }),
+      },
+    },
+  },
+  "/api/orders/{id}/qr": {
+    get: {
+      operationId: "getOrderQr", tags: ["Orders"], summary: "Get the QR code for an owned parcel",
+      description: "Returns the persisted opaque QR identifier and a PNG data URL generated from it. The path identifier is the parcel UUID or order code. Ownership is enforced in the database lookup, and inaccessible parcels are reported like missing parcels. The QR payload contains no recipient or financial information and is not an authorization credential.",
+      security: bearerSecurity,
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string", maxLength: 64 }, description: "Parcel UUID id or order code (PO + 16 uppercase hex characters, case-insensitive). Anything else is rejected with 400." },
+      ],
+      responses: {
+        200: response("Parcel QR code", successSchema(ref("OrderQr")), { success: true, data: orderQrExample }),
         ...errorResponses([400, 401, 403, 404, 500], {
           403: ["FORBIDDEN", "Insufficient permissions."],
           404: ["ORDER_NOT_FOUND", "Parcel not found."],
