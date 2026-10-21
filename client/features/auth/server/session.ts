@@ -146,3 +146,24 @@ export async function inviteRiderSession(request: NextRequest) {
     return rotated && response.status !== 401 ? writeCookies(response, rotated) : response;
   }
 }
+
+export async function smeDashboardSession(request: NextRequest) {
+  let rotated: Tokens | undefined;
+  try {
+    guard(request);
+    const session = await authenticated(request);
+    rotated = session.tokens;
+    if (session.user.role !== "SME") throw new SessionError(403, "FORBIDDEN");
+    const text = await request.text();
+    if (text.length > 1024) throw new SessionError(413, "INVALID_REQUEST");
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { throw new SessionError(400, "VALIDATION_ERROR"); }
+    if (!z.object({}).strict().safeParse(body).success) throw new SessionError(400, "VALIDATION_ERROR");
+    const result = await expressAuth("/api/sme/dashboard", undefined, session.accessToken);
+    const response = json(result);
+    return session.tokens ? writeCookies(response, session.tokens) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return rotated && response.status !== 401 ? writeCookies(response, rotated) : response;
+  }
+}
