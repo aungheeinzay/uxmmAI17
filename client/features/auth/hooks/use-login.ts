@@ -1,5 +1,6 @@
 "use client";
 
+import { roleRoutes } from "../role-routes";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api-client";
@@ -25,11 +26,12 @@ export function useLogin() {
       const user = await loginAccount(values);
       if (useAuthStore.getState().revision !== revision) return;
       useAuthStore.getState().setUser(user);
-      router.replace("/account");
+      router.replace(roleRoutes[user.role]);
     } catch (cause) {
       if (useAuthStore.getState().revision === revision) useAuthStore.getState().clearUser();
       setError(loginErrorMessage(cause));
       if (cause instanceof ApiError && cause.code === "EMAIL_NOT_VERIFIED") setUnverifiedEmail(values.email);
+    } finally {
       locked.current = false;
       setIsPending(false);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { roleRoutes } from "../role-routes";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,8 +25,8 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" },
   });
   useEffect(() => {
-    if (session.status === "authenticated") router.replace("/account");
-  }, [session.status, router]);
+    if (session.status === "authenticated" && session.user) router.replace(roleRoutes[session.user.role]);
+  }, [session.status, session.user, router]);
   const disabled = login.isPending || session.status === "loading" || session.status === "authenticated";
 
   return (

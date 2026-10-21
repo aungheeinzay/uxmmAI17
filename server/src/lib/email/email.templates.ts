@@ -14,3 +14,14 @@ export function accountEmail(purpose: EmailPurpose, url: string) {
     html: `<h1>ParcelOps AI</h1><p><a href="${escapeHtml(url)}">${action}</a></p><p>This link expires in 15 minutes and can be used once.</p><p>${notice}</p>`,
   };
 }
+
+export function riderInvitationEmail(url: string) {
+  const context = "An Operator from the ParcelOps AI team invited you to activate a Rider account. Choose your own password to get started.";
+  const expiry = "This invitation expires in 24 hours and can be used once.";
+  const notice = "If you were not expecting this invitation, ignore this email. No account is created until you activate it.";
+  return {
+    subject: "ParcelOps AI — Rider Invitation",
+    text: `ParcelOps AI\n\n${context}\n\nActivate Account: ${url}\n\n${expiry}\n${notice}`,
+    html: `<h1>ParcelOps AI</h1><p>${context}</p><p><a href="${escapeHtml(url)}">Activate Account</a></p><p>${expiry}</p><p>${notice}</p>`,
+  };
+}

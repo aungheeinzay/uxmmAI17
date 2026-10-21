@@ -1,4 +1,4 @@
-import { asyncHandler } from "../../lib/errors/error-handler";
+import { asyncHandler } from "../../middleware/async-handler";
 import * as service from "./auth.service";
 import { loginSchema, registerSchema, refreshSchema, verifyEmailSchema, emailRequestSchema, resetPasswordSchema } from "./auth.validation";
 import * as emailService from "./auth.email.service";

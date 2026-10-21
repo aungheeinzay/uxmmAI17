@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { invitationResponseSchema } from "@/features/riders/api/rider.api";
+import { z } from "zod";
 import { loginSchema } from "../schemas/auth.schema";
 import { currentProfile, exchangeTokens, expressAuth, SessionError, type Tokens } from "./express-auth";
 
@@ -120,4 +122,27 @@ export async function logoutSession(request: NextRequest) {
     }
     return clearCookies(json({ success: true, data: { message: "Signed out." } }));
   } catch (error) { return errorResponse(error); }
+}
+
+export async function inviteRiderSession(request: NextRequest) {
+  let rotated: Tokens | undefined;
+  try {
+    guard(request);
+    const session = await authenticated(request);
+    rotated = session.tokens;
+    if (session.user.role !== "OPERATOR") throw new SessionError(403, "FORBIDDEN");
+    const text = await request.text();
+    if (text.length > 16384) throw new SessionError(413, "INVALID_REQUEST");
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { throw new SessionError(400, "VALIDATION_ERROR"); }
+    const input = z.object({ email: z.string().trim().email().max(254), fullName: z.string().trim().min(1).max(120).optional() }).strict().safeParse(body);
+    if (!input.success) throw new SessionError(400, "VALIDATION_ERROR");
+    const result = invitationResponseSchema.safeParse(await expressAuth("/api/riders/invitations", input.data, session.accessToken));
+    if (!result.success) throw new SessionError(502, "INVALID_RESPONSE");
+    const response = json(result.data, 201);
+    return session.tokens ? writeCookies(response, session.tokens) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return rotated && response.status !== 401 ? writeCookies(response, rotated) : response;
+  }
 }

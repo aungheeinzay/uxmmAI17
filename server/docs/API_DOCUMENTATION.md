@@ -1,6 +1,9 @@
-# Authentication API reference
+# ParcelOps AI API reference
 
-Default base URL: `http://localhost:3000`. Bodies use `Content-Type: application/json`.
+Use the backend port configured by `PORT` in `server/.env` (currently `4000` locally).
+Local base URL: `http://localhost:4000`. Bodies use `Content-Type: application/json`.
+
+For step-by-step Swagger instructions, see [Swagger API guide](SWAGGER_API_GUIDE.md).
 
 Swagger UI: `/api/docs`. OpenAPI JSON: `/api/docs.json`. Both are enabled outside
 production by default; set `ENABLE_API_DOCS=true` to explicitly enable production docs.
@@ -20,6 +23,8 @@ Click Authorize and paste only the opaque access token, without a Bearer prefix.
 | POST | `/api/auth/logout` | None | Bearer access token | 200; session ended message |
 | GET | `/api/users/me` | None | Bearer access token | 200; profile |
 | PATCH | `/api/users/me` | `{ "fullName": "Example User", "phone": "+959123456789" }` | Bearer access token | 200; updated profile |
+| POST | `/api/riders/invitations` | `{ "email": "rider@example.com", "fullName": "Rider One" }` | OPERATOR Bearer access token | 201; pending invitation, no raw token |
+| POST | `/api/riders/activate` | `{ "token": "<invitation-token>", "password": "<chosen-password>" }` | Public, invitation token required | 200; activated message, no session |
 | GET | `/health` | None | Public | 200; `{ "status": "ok" }` |
 
 Public does not mean unrestricted: auth endpoints are rate limited. All POST bodies
@@ -88,19 +93,26 @@ Error envelope:
 | 400 `INVALID_JSON` | Malformed JSON |
 | 400 `INVALID_VERIFICATION_TOKEN` | Invalid, expired or used verification token |
 | 400 `INVALID_RESET_TOKEN` | Invalid, expired or used reset token |
+| 400 `INVALID_INVITATION_TOKEN` | Invalid, expired, revoked or used Rider invitation |
 | 401 `LOGIN_FAILED` | Invalid credentials, or credentials changed during login |
 | 401 `UNAUTHORIZED` | Protected route lacks a valid token or account is unverified |
 | 401 `INVALID_REFRESH_TOKEN` | Invalid/revoked/expired refresh token or unverified account |
 | 403 `EMAIL_NOT_VERIFIED` | Login with correct credentials before verification |
+| 403 `FORBIDDEN` | Non-Operator attempts to invite a Rider |
 | 409 `REGISTRATION_FAILED` | Duplicate account email |
+| 409 `RIDER_INVITATION_CONFLICT` | Existing account or pending invitation; account created before activation |
 | 429 `RATE_LIMITED` | Overall auth or email-request rate limit |
-| 503 `EMAIL_DELIVERY_FAILED` | Registration email could not be delivered |
+| 503 `EMAIL_DELIVERY_FAILED` | Registration or Rider invitation email could not be delivered |
 | 500 `INTERNAL_ERROR` | Unexpected server/database failure |
 | 404 `PROFILE_NOT_FOUND` | Profile read found no profile |
 
-`requireRole` supports `403 FORBIDDEN` for role-protected routes; current profile
+`requireRole` enforces OPERATOR-only Rider invitation creation; current profile
 endpoints only require authentication. Profile updates cannot set role or identity.
 Resend and forgot-password hide SMTP failures behind their generic 200 response.
+
+Rider invitations expire after 24 hours. Activation creates a verified RIDER account
+atomically and never changes an existing account's role. See the
+[RBAC and Rider invitation guide](RBAC_AND_RIDER_INVITATIONS.md) for details.
 
 ## Postman workflow
 

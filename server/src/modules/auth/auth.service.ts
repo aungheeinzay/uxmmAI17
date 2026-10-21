@@ -43,6 +43,7 @@ export async function login(input: { email: string; password: string }) {
   return issue(account);
 }
 export async function authenticate(accessToken: string) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(accessToken)) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
   const session = await repository.findSession(digest(accessToken));
   if (!session || session.accessExpiresAt <= new Date() || !session.account.emailVerifiedAt) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
   return { id: session.account.id, email: session.account.email, role: session.account.profile.role, accessToken };

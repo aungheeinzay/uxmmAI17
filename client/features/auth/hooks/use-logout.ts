@@ -18,9 +18,11 @@ export function useLogout() {
     useAuthStore.getState().clearUser();
     try {
       await logoutAccount();
+      useAuthStore.getState().clearUser();
       router.replace("/login");
     } catch {
       setError("We couldn’t finish signing you out. Please retry to revoke your session.");
+    } finally {
       locked.current = false;
       setIsPending(false);
     }
