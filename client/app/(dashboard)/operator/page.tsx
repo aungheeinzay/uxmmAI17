@@ -1,1 +1,2 @@
-export default function Page() { return <h1 className="text-2xl font-semibold">Operator Dashboard</h1>; }
+import { OperatorDashboard } from "@/features/operator/components/operator-dashboard";
+export default function Page() { return <OperatorDashboard />; }
