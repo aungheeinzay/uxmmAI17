@@ -41,6 +41,9 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'post /api/auth/verify-email', 'post /api/auth/resend-verification', 'post /api/auth/forgot-password', 'post /api/auth/reset-password',
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',
     'post /api/riders/invitations', 'post /api/riders/activate',
+    'get /api/delivery/services', 'get /api/delivery/cities',
+    'get /api/sme/dashboard',
+    'get /api/orders', 'post /api/orders', 'get /api/orders/{id}', 'get /api/orders/{id}/qr', 'get /api/orders/{id}/status', 'patch /api/orders/{id}/status',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
   assert.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
@@ -69,6 +72,10 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   assert.equal(spec.components.schemas.Registration.properties.confirmationRequired.enum[0], true);
   assert.equal(spec.components.schemas.Registration.properties.accessToken, undefined);
   assert.ok(spec.paths['/api/auth/login'].post.responses['403']);
+  const orderList = spec.paths['/api/orders'].get;
+  assert.deepEqual(orderList.parameters.find(p => p.name === 'tab').schema.enum, ['all', 'needs_pickup', 'exceptions']);
+  assert.deepEqual(spec.components.schemas.OrderList.required, ['orders', 'pagination', 'tabCounts']);
+  assert.deepEqual(orderList.responses['200'].content['application/json'].example.data.tabCounts, { all: 1, needsPickup: 1, exceptions: 0 });
   for (const [path, schema] of [['/api/auth/verify-email', verifyEmailSchema], ['/api/auth/reset-password', resetPasswordSchema]]) {
     assert.equal(schema.safeParse(spec.paths[path].post.requestBody.content['application/json'].example).success, true);
   }

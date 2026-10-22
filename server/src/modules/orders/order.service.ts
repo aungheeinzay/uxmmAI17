@@ -4,12 +4,18 @@ import { AppError } from "../../lib/errors/app-error";
 import { OrderStatus } from "../../generated/prisma/enums";
 import * as userService from "../users/user.service";
 import * as repository from "./order.repository";
-import type { CreateOrderInput, ListOrdersQuery, OrderIdentifier, UpdateOrderStatusInput } from "./order.validation";
-import type { CreatedOrder, DashboardPeriod, DashboardRecentOrder, DashboardTimelineEntry, ListedOrder, OrderDashboard, OrderDetail, OrderListResult, OrderQr, UpdatedOrderDetail } from "./order.types";
+import { ORDER_TABS, type CreateOrderInput, type ListOrdersQuery, type OrderIdentifier, type UpdateOrderStatusInput } from "./order.validation";
+import type { CreatedOrder, DashboardMonthlyCost, DashboardPeriod, DashboardRecentOrder, DashboardTimelineEntry, ListedOrder, OrderDashboard, OrderDetail, OrderListResult, OrderQr, OrderStatusView, TrackingTimelineEntry, UpdatedOrderDetail } from "./order.types";
 
 export function generateOrderCode() {
   return `PO${randomBytes(8).toString("hex").toUpperCase()}`;
 }
+
+// Number of calendar months reported in the dashboard monthly breakdown.
+const MONTHLY_COST_MONTHS = 6;
+
+// Every parcel is created with the server-assigned MMK currency, so the monthly totals are MMK.
+const DASHBOARD_CURRENCY = "MMK";
 
 function isUniqueConflict(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
@@ -107,6 +113,19 @@ export async function getOrderQr(ownerId: string, identifier: OrderIdentifier): 
   };
 }
 
+// Owner-scoped status lookup by parcel id or order code. Returns only the current status and
+// the timestamped status history; recipient, address and financial fields are never loaded.
+export async function getOrderStatus(ownerId: string, identifier: OrderIdentifier): Promise<OrderStatusView> {
+  await userService.getProfile(ownerId);
+  const order = await repository.findStatusByIdentifier(ownerId, identifier);
+  if (!order) throw new AppError(404, "ORDER_NOT_FOUND", "Parcel not found.");
+  const timeline: TrackingTimelineEntry[] = [
+    { status: OrderStatus.CREATED, previousStatus: null, note: null, createdAt: order.createdAt },
+    ...order.statusEvents,
+  ];
+  return { id: order.id, orderCode: order.orderCode, status: order.status, timeline };
+}
+
 type OrderDetailRow = NonNullable<Awaited<ReturnType<typeof repository.findOrderForOwner>>>;
 function serializeDetail(order: OrderDetailRow): OrderDetail {
   return {
@@ -147,8 +166,7 @@ export async function getOrder(ownerId: string, identifier: OrderIdentifier): Pr
 const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   CREATED: ["PICKED_UP", "CANCELLED"],
   PICKED_UP: ["IN_TRANSIT", "FAILED"],
-  IN_TRANSIT: ["OUT_FOR_DELIVERY", "FAILED"],
-  OUT_FOR_DELIVERY: ["DELIVERED", "FAILED"],
+  IN_TRANSIT: ["DELIVERED", "FAILED"],
   DELIVERED: [],
   FAILED: [],
   CANCELLED: [],
@@ -211,11 +229,21 @@ function serializeListed(order: ListedOrderRow): ListedOrder {
 }
 
 // Owner-scoped parcel list. Ownership always comes from the authenticated caller, never the query.
+// The active tab selects a status set; the returned tabCounts always cover the whole book of parcels.
 export async function listOrders(ownerId: string, query: ListOrdersQuery): Promise<OrderListResult> {
   await userService.getProfile(ownerId);
   const skip = (query.page - 1) * query.pageSize;
-  const filters = { ownerId, search: query.search, status: query.status };
-  const [rows, total] = await repository.listOrdersWithCount({ ...filters, skip, take: query.pageSize });
+  const statuses = query.status ? [query.status] : ORDER_TABS[query.tab];
+  const filters = { ownerId, search: query.search, statuses };
+  const [rows, total, groupedStatuses] = await repository.listOrdersWithCount({ ...filters, skip, take: query.pageSize });
+
+  const statusCount = (status: OrderStatus) => {
+    const group = groupedStatuses.find((entry) => entry.status === status);
+    return group && typeof group._count === "object" && group._count !== null ? group._count._all ?? 0 : 0;
+  };
+  const sumOf = (statuses: readonly OrderStatus[]) => statuses.reduce((total, status) => total + statusCount(status), 0);
+  const all = groupedStatuses.reduce((total, group) => total + (typeof group._count === "object" && group._count !== null ? group._count._all ?? 0 : 0), 0);
+
   return {
     orders: rows.map(serializeListed),
     pagination: {
@@ -223,6 +251,11 @@ export async function listOrders(ownerId: string, query: ListOrdersQuery): Promi
       pageSize: query.pageSize,
       total,
       totalPages: total === 0 ? 0 : Math.ceil(total / query.pageSize),
+    },
+    tabCounts: {
+      all,
+      needsPickup: sumOf(ORDER_TABS.needs_pickup),
+      exceptions: sumOf(ORDER_TABS.exceptions),
     },
   };
 }
@@ -235,6 +268,18 @@ function startOfUtcWeek(date: Date) {
 
 function startOfUtcMonth(date: Date) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+// The last `count` calendar months in UTC, oldest first, ending with the month that holds `now`.
+function monthRangesEndingAt(now: Date, count: number): repository.DashboardMonthRange[] {
+  const ranges: repository.DashboardMonthRange[] = [];
+  for (let offset = count - 1; offset >= 0; offset -= 1) {
+    const startsAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+    const endsAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset + 1, 1));
+    const month = `${startsAt.getUTCFullYear()}-${String(startsAt.getUTCMonth() + 1).padStart(2, "0")}`;
+    ranges.push({ month, startsAt, endsAt });
+  }
+  return ranges;
 }
 
 function calculateSuccessRate(totalShipments: number, totalDelivered: number) {
@@ -287,6 +332,8 @@ export async function getOrderDashboard(ownerId: string): Promise<OrderDashboard
   const monthStart = startOfUtcMonth(now);
   const [totalParcels, groupedStatuses, weekShipments, weekDelivered, monthShipments, monthDelivered, recentRows] =
     await repository.getDashboardData(ownerId, weekStart, monthStart, now);
+  const monthRanges = monthRangesEndingAt(now, MONTHLY_COST_MONTHS);
+  const monthlyTotals = await repository.getMonthlyDeliveryTotals(ownerId, monthRanges);
 
   const statusCounts = Object.fromEntries(Object.values(OrderStatus).map((status) => [status, 0])) as Record<OrderStatus, number>;
   for (const group of groupedStatuses) {
@@ -306,6 +353,16 @@ export async function getOrderDashboard(ownerId: string): Promise<OrderDashboard
     return serializeDashboardRecentOrder(order, imageDataUrl);
   }));
 
+  const monthlyCosts: DashboardMonthlyCost[] = monthRanges.map((range, index) => {
+    const total = monthlyTotals[index];
+    return {
+      month: range.month,
+      cost: total?._sum.codAmount ? total._sum.codAmount.toString() : "0",
+      currency: DASHBOARD_CURRENCY,
+      parcels: total?._count._all ?? 0,
+    };
+  });
+
   return {
     totalParcels,
     statusCounts,
@@ -313,6 +370,7 @@ export async function getOrderDashboard(ownerId: string): Promise<OrderDashboard
       thisWeek: period(weekStart, weekShipments, weekDelivered),
       thisMonth: period(monthStart, monthShipments, monthDelivered),
     },
+    monthlyCosts,
     recentOrders,
   };
 }

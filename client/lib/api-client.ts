@@ -27,12 +27,22 @@ export async function postSessionJson(path: string, body: unknown = {}): Promise
   return requestJson(`/api/session/${path}`, body, "same-origin");
 }
 
+export async function getSessionJson(path: string, params: Record<string, string | number | undefined> = {}): Promise<unknown> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) query.set(key, String(value));
+  }
+  const suffix = query.toString();
+  return requestJson(`/api/session/${path}${suffix ? `?${suffix}` : ""}`, undefined, "same-origin");
+}
+
 async function requestJson(url: string, body: unknown, credentials: RequestCredentials): Promise<unknown> {
   let response: Response;
+  const method = body === undefined ? "GET" : "POST";
   try {
     response = await fetch(url, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body), credentials, cache: "no-store",
+      method, headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body), credentials, cache: "no-store",
       signal: AbortSignal.timeout(30000),
     });
   } catch (error) {
