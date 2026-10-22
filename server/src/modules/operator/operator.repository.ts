@@ -10,6 +10,8 @@ export const orderSelect = {
   phoneNumber: true, township: true, deliveryAddress: true, senderName: true,
   parcelWeightKg: true, codAmount: true, currency: true, status: true,
   createdAt: true, updatedAt: true, deliveryInstructions: true,
+  // Derived incident flag; never a stored boolean.
+  incidents: { select: { id: true }, take: 1 },
   owner: { select: { id: true, fullName: true, phone: true } },
   operator: { select: { id: true, fullName: true, phone: true } },
 } as const satisfies Prisma.ParcelOrderSelect;

@@ -52,6 +52,8 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'get /api/operator/warehouse/overview', 'get /api/operator/warehouse/parcels',
     'get /api/rider/assignments', 'get /api/rider/assignments/{id}', 'patch /api/rider/assignments/{id}/status',
     'get /api/rider/profile', 'patch /api/rider/profile',
+    'post /api/rider/incidents', 'get /api/rider/incidents', 'get /api/rider/incidents/{id}',
+    'get /api/operator/incidents', 'get /api/operator/incidents/{id}', 'patch /api/operator/incidents/{id}/review',
     'get /api/sme/dashboard',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
@@ -86,7 +88,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   }
   assert.ok(spec.components.schemas.RiderProfileResult);
   assert.ok(spec.components.schemas.RiderProfileUpdateInput);
-  for (const name of ['Riders', 'Rider Profile', 'Rider Deliveries']) {
+  for (const name of ['Riders', 'Rider Profile', 'Rider Deliveries', 'Rider Incidents', 'Operator Incidents']) {
     assert.ok(spec.tags.find(tag => tag.name === name).description, `${name} tag needs a description`);
   }
   for (const [method, path] of [['get', '/api/rider/assignments'], ['get', '/api/rider/assignments/{id}'], ['patch', '/api/rider/assignments/{id}/status']]) {

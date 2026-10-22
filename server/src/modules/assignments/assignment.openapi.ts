@@ -8,11 +8,12 @@ const text = { type: "string" };
 const person = { type: "object", required: ["id", "fullName", "phone"], properties: {
   id: uuid, fullName: { ...text, nullable: true }, phone: { ...text, nullable: true },
 } };
-const order = { type: "object", required: [...pricingRequired, "id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "codAmount", "currency", "status"], properties: {
+const order = { type: "object", required: [...pricingRequired, "id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "codAmount", "currency", "status", "hasIncident"], properties: {
   ...pricingFields,
   id: uuid, orderCode: text, recipientName: text, phoneNumber: text, deliveryAddress: text,
   township: text, deliveryInstructions: { ...text, nullable: true }, codAmount: { ...text, description: "Exact decimal string" }, currency: text,
   status: { type: "string", enum: Object.values(OrderStatus) },
+  hasIncident: { type: "boolean", description: "Derived from persisted Rider incident records; true when the parcel has at least one report." },
 } };
 const pagination = { type: "object", required: ["page", "pageSize", "total", "totalPages"], properties: {
   page: { type: "integer", minimum: 1 }, pageSize: { type: "integer", minimum: 1, maximum: 100 },

@@ -88,8 +88,13 @@ test('pagination uses correct total independent of the current page', async () =
   assert.equal(result.body.data.orders.length, 2); assert.deepEqual(result.body.data.pagination, { page: 2, pageSize: 2, total: 6, totalPages: 3 });
   assert.equal(reads[0].skip, 2); assert.deepEqual(reads[0].orderBy, [{ createdAt: 'desc' }, { id: 'desc' }]);
 });
-test('empty data returns zero counts and valid empty pagination', async () => {
-  rows = []; const overview = await get('overview'); assert.equal(overview.body.data.receivedAwaitingDispatch, 0); assert.equal(overview.body.data.completed, 0);
+test('each warehouse order exposes a derived hasIncident flag', async () => {
+  rows.find(row => row.status === 'PICKED_UP' && !row.assignment).incidents = [{ id: randomUUID() }];
+  const result = await get('parcels');
+  assert.equal(result.body.data.orders.filter(order => order.hasIncident).length, 1);
+  assert.ok(result.body.data.orders.every(order => typeof order.hasIncident === 'boolean'));
+});
+test('empty data returns zero counts and valid empty pagination', async () => {  rows = []; const overview = await get('overview'); assert.equal(overview.body.data.receivedAwaitingDispatch, 0); assert.equal(overview.body.data.completed, 0);
   assert.deepEqual((await get('parcels')).body.data, { orders: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } });
 });
 test('invalid inputs and identity/status overrides are rejected before database access', async () => {

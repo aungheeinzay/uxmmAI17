@@ -11,6 +11,8 @@ const orderSelect = {
   id: true, orderCode: true, recipientName: true, phoneNumber: true,
   deliveryAddress: true, township: true, deliveryInstructions: true,
   codAmount: true, currency: true, status: true,
+  // hasIncident is derived from persisted records, never a mutable flag.
+  incidents: { select: { id: true }, take: 1 },
 } as const;
 export const assignmentSelect = {
   id: true, orderId: true, riderId: true, assignedById: true, assignedAt: true,

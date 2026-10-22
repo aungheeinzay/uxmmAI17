@@ -9,6 +9,8 @@ import { getMyAssignment } from "../api/deliveries.api";
 import { useDeliveryResource } from "../hooks/use-deliveries";
 import { DeliveryActions } from "./delivery-actions";
 import { DeliveryFeedback, DeliveryRequestState } from "./delivery-shared";
+import { ReportIncidentButton } from "@/features/incidents/components/report-incident-button";
+import { IncidentFeedback } from "@/features/incidents/components/incident-shared";
 
 export function RiderDeliveryDetails({ id }: { id: string }) {
   const query = useDeliveryResource("RIDER", id, getMyAssignment);
@@ -19,6 +21,7 @@ export function RiderDeliveryDetails({ id }: { id: string }) {
         <ChevronLeft aria-hidden="true" className="size-4" />Back to my deliveries
       </Link>
       <DeliveryFeedback />
+      <IncidentFeedback />
       <DeliveryRequestState loading={query.isLoading} error={query.error} retry={query.retry} />
       {item && (
         <>
@@ -53,6 +56,8 @@ export function RiderDeliveryDetails({ id }: { id: string }) {
           </section>
 
           <DeliveryActions assignment={item} />
+
+          <ReportIncidentButton assignment={item} />
 
           <section className="space-y-4 rounded-2xl border bg-card p-5">
             <h2 className="font-semibold">Delivery history</h2>

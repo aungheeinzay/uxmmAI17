@@ -25,6 +25,7 @@ export const operatorOrderSchema = z.object({
   recipientName: z.string(), phoneNumber: z.string(), township: z.string(), deliveryAddress: z.string(),
   senderName: z.string(), parcelWeight: decimal, parcelWeightUnit: z.literal("kg"),
   codAmount: decimal, currency: z.string(), status: z.string(),
+  hasIncident: z.boolean(),
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(), deliveryInstructions: z.string().nullable(),
   owner: personSchema.extend({ phone: z.string().nullable() }),
   operatorId: z.string().uuid().nullable(),

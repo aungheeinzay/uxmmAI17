@@ -11,6 +11,7 @@ import { orderPaths, orderSchemas } from "../modules/orders/order.openapi";
 import { operatorPaths, operatorSchemas } from "../modules/operator/operator.openapi";
 import { assignmentPaths, assignmentSchemas } from "../modules/assignments/assignment.openapi";
 import { warehousePaths, warehouseSchemas } from "../modules/operator/warehouse/warehouse.openapi";
+import { incidentPaths, incidentSchemas } from "../modules/incidents/incident.openapi";
 import { errorSchema, response } from "../lib/openapi";
 
 export const openApiDocument = {
@@ -28,17 +29,20 @@ export const openApiDocument = {
     { name: "Riders", description: "Rider invitations and activation. Riders are created only through an authenticated Operator invitation and activate through the existing email/password flow." },
     { name: "Rider Profile", description: "Authenticated Rider onboarding and vehicle details. Profile read/update stay reachable while onboarding is incomplete." },
     { name: "Rider Deliveries", description: "Authenticated Rider assignments and status transitions. Every delivery operation requires a completed Rider profile and delivery-provider membership; onboarding endpoints remain available while incomplete." },
+    { name: "Rider Incidents", description: "Authenticated Rider incident reporting for damaged, broken or lost parcels. Only the assigned Rider may report; reporting never changes the order status." },
+    { name: "Operator Incidents", description: "Provider-scoped incident review for Operators. Incidents are visible only within the authenticated Operator's delivery provider." },
     { name: "Health" },
   ],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas, ...incidentSchemas },
   },
   paths: {
     ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
     ...providerPaths,
     ...riderManagementPaths,
     ...riderProfilePaths,
+    ...incidentPaths,
     "/health": { get: {
       operationId: "health", tags: ["Health"], summary: "Check server health",
       description: "Returns process availability; does not check the database.", security: [],

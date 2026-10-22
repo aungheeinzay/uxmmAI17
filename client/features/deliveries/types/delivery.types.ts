@@ -8,7 +8,7 @@ export const assignmentSchema = z.object({
   rider: person, assignedBy: person,
   order: z.object({ id: z.string().uuid(), orderCode: z.string(), recipientName: z.string(), phoneNumber: z.string(),
     deliveryAddress: z.string(), township: z.string(), deliveryInstructions: z.string().nullable(),
-    codAmount: z.string().regex(/^\d+(?:\.\d+)?$/), currency: z.string(), status: z.string() }),
+    codAmount: z.string().regex(/^\d+(?:\.\d+)?$/), currency: z.string(), status: z.string(), hasIncident: z.boolean() }),
 });
 export const assignmentDetailSchema = assignmentSchema.extend({ order: assignmentSchema.shape.order.extend({
   statusEvents: z.array(z.object({ id: z.string().uuid(), previousStatus: z.string(), status: z.string(), note: z.string().nullable(), createdAt: z.iso.datetime(), actor: z.object({ id: z.string().uuid(), fullName: z.string().nullable() }) })),

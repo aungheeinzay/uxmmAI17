@@ -6,9 +6,9 @@ import type { OperatorActor, OperatorOrderRow } from "./operator.types";
 import { deriveWarehouseState } from "./warehouse/warehouse.state";
 
 export function serializeOperatorOrder<T extends OperatorOrderRow>(row: T) {
-  const { parcelWeightKg, codAmount, ...rest } = row;
+  const { parcelWeightKg, codAmount, incidents, ...rest } = row;
   return { ...rest, ...serializePricing(row), parcelWeight: parcelWeightKg.toString(), parcelWeightUnit: "kg" as const,
-    codAmount: codAmount.toString() };
+    codAmount: codAmount.toString(), hasIncident: (incidents?.length ?? 0) > 0 };
 }
 export async function listOrders(query: OperatorOrdersQuery) {
   const [rows, total] = await repository.listWithCount(query);

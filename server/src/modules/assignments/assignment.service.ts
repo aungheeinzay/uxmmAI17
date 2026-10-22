@@ -14,7 +14,8 @@ const transitionConflict = () => new AppError(409, "STATUS_TRANSITION_NOT_ALLOWE
 function code(error: unknown) { return typeof error === "object" && error !== null && "code" in error ? error.code : undefined; }
 type AssignmentRow = Awaited<ReturnType<typeof repository.insertAssignment>>;
 function serialize<T extends AssignmentRow>(row: T) {
-  return { ...row, order: { ...row.order, ...serializePricing(row.order), codAmount: row.order.codAmount.toString() } };
+  const { incidents, ...order } = row.order;
+  return { ...row, order: { ...order, ...serializePricing(row.order), codAmount: row.order.codAmount.toString(), hasIncident: (incidents?.length ?? 0) > 0 } };
 }
 function pagination(query: AssignmentQuery, total: number) {
   return { ...query, total, totalPages: Math.ceil(total / query.pageSize) };

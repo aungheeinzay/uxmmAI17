@@ -31,6 +31,8 @@ model Profile {
   riderAssignments RiderAssignment[] @relation("AssignmentRider")
   assignedParcels RiderAssignment[] @relation("AssignmentOperator")
   riderProfile RiderProfile?
+  incidents RiderIncident[] @relation("IncidentRider")
+  reviewedIncidents RiderIncident[] @relation("IncidentReviewer")
 
   @@index([providerId])
   @@map("profiles")
@@ -166,6 +168,7 @@ model ParcelOrder {
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   statusEvents          OrderStatusEvent[]
   assignment            RiderAssignment?
+  incidents             RiderIncident[]
 
   @@index([deliveryProviderId], map: "orders_legacy_delivery_service_id_idx")
   @@index([ownerId])
@@ -200,9 +203,50 @@ model RiderAssignment {
   assignedById String      @map("assigned_by_id") @db.Uuid
   assignedBy   Profile     @relation("AssignmentOperator", fields: [assignedById], references: [id], onDelete: Restrict)
   assignedAt   DateTime    @default(now()) @map("assigned_at") @db.Timestamptz(3)
+  incidents    RiderIncident[]
 
   @@index([riderId, assignedAt])
   @@map("rider_assignments")
+}
+
+// Rider-reported parcel problems. The presence of any record is the incident flag,
+// so hasIncident is always derived and cannot drift. Reporting never changes OrderStatus.
+enum IncidentType {
+  DAMAGED
+  BROKEN
+  LOST
+}
+
+enum IncidentStatus {
+  OPEN
+  REVIEWED
+}
+
+model RiderIncident {
+  id           String           @id @default(uuid()) @db.Uuid
+  orderId      String           @map("order_id") @db.Uuid
+  order        ParcelOrder      @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  riderId      String           @map("rider_id") @db.Uuid
+  rider        Profile          @relation("IncidentRider", fields: [riderId], references: [id], onDelete: Restrict)
+  assignmentId String?          @map("assignment_id") @db.Uuid
+  assignment   RiderAssignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  providerId   String           @map("provider_id") @db.Uuid
+  provider     DeliveryProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  type         IncidentType
+  reason       String           @db.VarChar(200)
+  description  String           @db.VarChar(1000)
+  status       IncidentStatus   @default(OPEN)
+  reviewedAt   DateTime?        @map("reviewed_at") @db.Timestamptz(3)
+  reviewedById String?          @map("reviewed_by_id") @db.Uuid
+  reviewedBy   Profile?         @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // One report of a given type per parcel prevents accidental duplicate submissions.
+  @@unique([orderId, type], map: "rider_incidents_order_id_type_key")
+  @@index([riderId, createdAt], map: "rider_incidents_rider_id_created_at_idx")
+  @@index([providerId, status, createdAt], map: "rider_incidents_provider_id_status_created_at_idx")
+  @@map("rider_incidents")
 }
 
 // Reuses the historical catalog and existing order foreign key without copying data.
@@ -216,6 +260,7 @@ model DeliveryProvider {
   orders ParcelOrder[]
   operators Profile[] @relation("OperatorProvider")
   invitations RiderInvitation[]
+  incidents RiderIncident[]
   @@index([isActive], map: "legacy_delivery_services_is_active_idx")
   @@map("legacy_delivery_services")
 }

@@ -9,4 +9,5 @@ export type OperatorOrderRow = {
   deliveryProvider?: { id: string; name: string } | null;
   parcelWeightKg: Prisma.Decimal;
   codAmount: Prisma.Decimal;
+  incidents?: { id: string }[];
 };

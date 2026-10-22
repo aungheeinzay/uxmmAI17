@@ -161,6 +161,7 @@ test('assignment is atomic, uses authenticated operator and never changes order 
   const result = await create(); assert.equal(result.status, 201);
   assert.equal(result.body.data.assignedById, ids.operator); assert.equal(result.body.data.order.status, 'PICKED_UP');
   assert.equal(result.body.data.order.codAmount, '25000.5');
+  assert.equal(result.body.data.order.hasIncident, false);
   assert.equal(state.order.status, 'PICKED_UP'); assert.equal(state.events.length, 0);
   assert.equal(transactionOptions[0].isolationLevel, 'Serializable');
   assert.equal((await create()).status, 409);

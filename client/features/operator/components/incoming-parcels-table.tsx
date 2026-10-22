@@ -13,7 +13,7 @@ export function IncomingParcelsTable({ orders, returnTo, warehouse = false }: { 
         {(warehouse ? ["Order / recipient", "Township / delivery address", "COD", "Order status", "Warehouse state", "Assigned Rider", "Created (MMT)", "Actions"] : ["Order / recipient", "Township", "Seller", "Operator", "COD", "Status", "Created (MMT)", "Details", "Receiving"]).map(label => <th key={label} scope="col" className="px-4 py-3 font-medium">{label}</th>)}
       </tr></thead>
       <tbody className="divide-y">{orders.map(order => <tr key={order.id} className="hover:bg-muted/30">
-        <td className="px-4 py-4"><p className="font-mono text-xs font-semibold">{order.orderCode}</p><p className="mt-1">{order.recipientName}</p></td>
+        <td className="px-4 py-4"><p className="font-mono text-xs font-semibold">{order.orderCode}</p><p className="mt-1">{order.recipientName}</p>{order.hasIncident && <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">Incident reported</span>}</td>
         <td className="px-4 py-4">{order.township}{warehouse && <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{order.deliveryAddress}</p>}</td>
         {warehouse ? <>
         <td className="whitespace-nowrap px-4 py-4 tabular-nums">{formatParcelDecimal(order.codAmount)} {order.currency}</td>

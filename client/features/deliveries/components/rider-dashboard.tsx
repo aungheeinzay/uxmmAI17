@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2, ChevronRight, CircleX, MapPin, Package, QrCode, RefreshCw, ScanLine, Truck,
+  CheckCircle2, ChevronRight, CircleX, MapPin, Package, QrCode, RefreshCw, ScanLine, TriangleAlert, Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -36,10 +36,15 @@ export function RiderDashboard() {
           <p className="text-sm text-muted-foreground">Hello, {firstName}</p>
           <h1 className="text-2xl font-bold tracking-tight">My Deliveries</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={query.retry} disabled={query.isLoading} className="min-h-10">
-          <RefreshCw aria-hidden="true" className={query.isLoading ? "animate-spin" : undefined} />
-          <span className="hidden sm:inline">Refresh</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/rider/incidents" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border bg-card px-3 text-sm font-semibold text-foreground">
+            <TriangleAlert aria-hidden="true" className="size-4 text-amber-600" />Incidents
+          </Link>
+          <Button variant="outline" size="sm" onClick={query.retry} disabled={query.isLoading} className="min-h-10">
+            <RefreshCw aria-hidden="true" className={query.isLoading ? "animate-spin" : undefined} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        </div>
       </div>
 
       <button

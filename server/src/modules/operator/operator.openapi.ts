@@ -16,13 +16,14 @@ export const operatorSchemas = {
     type: "object", required: ["previousStatus"], properties: { previousStatus: { type: "string", enum: ["CREATED"] } },
   }] },
   OperatorOrdersQuery: inputSchema(operatorOrdersQuerySchema),
-  OperatorOrder: { type: "object", required: [...pricingRequired, "id", "orderCode", "ownerId", "recipientName", "phoneNumber", "township", "deliveryAddress", "senderName", "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "status", "createdAt", "updatedAt", "owner", "operatorId", "operator", "deliveryInstructions"], properties: {
+  OperatorOrder: { type: "object", required: [...pricingRequired, "id", "orderCode", "ownerId", "recipientName", "phoneNumber", "township", "deliveryAddress", "senderName", "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "status", "createdAt", "updatedAt", "owner", "operatorId", "operator", "deliveryInstructions", "hasIncident"], properties: {
     ...pricingFields,
     id: uuid, orderCode: text, ownerId: uuid, recipientName: text, phoneNumber: text,
     township: text, deliveryAddress: text, senderName: text, parcelWeight: { type: "string", description: "Decimal kilograms" },
     parcelWeightUnit: { type: "string", enum: ["kg"] }, codAmount: { type: "string", description: "Decimal COD amount" },
     currency: text, status, createdAt: date, updatedAt: date,
     deliveryInstructions: { type: "string", nullable: true },
+    hasIncident: { type: "boolean", description: "Derived from persisted Rider incident records; true when the parcel has at least one report. Never stored as a mutable flag and never changes the order status." },
     owner: { ...person, properties: { ...person.properties, phone: { type: "string", nullable: true } } },
     operatorId: { ...uuid, nullable: true }, operator: { ...person, nullable: true, properties: { ...person.properties, phone: { type: "string", nullable: true } } },
   } },
