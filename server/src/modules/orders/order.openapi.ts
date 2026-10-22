@@ -48,10 +48,45 @@ const createdExample = {
   },
 };
 
+const listedExample = {
+  id: createdExample.id,
+  orderCode: createdExample.orderCode,
+  recipientName: createdExample.recipientName,
+  phoneNumber: createdExample.phoneNumber,
+  township: createdExample.township,
+  deliveryAddress: createdExample.deliveryAddress,
+  parcelWeight: createdExample.parcelWeight,
+  parcelWeightUnit: "kg",
+  codAmount: createdExample.codAmount,
+  currency: "MMK",
+  senderName: createdExample.senderName,
+  status: "CREATED",
+  createdAt: createdExample.createdAt,
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator" },
+};
+
+const listExample = {
+  orders: [listedExample],
+  pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+  tabCounts: { all: 1, needsPickup: 1, exceptions: 0 },
+};
+
 const orderQrExample = {
   id: createdExample.id,
   orderCode: createdExample.orderCode,
   qr: createdExample.qr,
+};
+
+const statusViewExample = {
+  id: createdExample.id,
+  orderCode: createdExample.orderCode,
+  status: "IN_TRANSIT",
+  timeline: [
+    { status: "CREATED", previousStatus: null, note: null, createdAt: "2026-10-20T00:00:00.000Z" },
+    { status: "PICKED_UP", previousStatus: "CREATED", note: "Parcel handed over to the assigned Operator", createdAt: "2026-10-20T02:15:00.000Z" },
+    { status: "IN_TRANSIT", previousStatus: "PICKED_UP", note: null, createdAt: "2026-10-20T05:40:00.000Z" },
+  ],
 };
 
 const dashboardExample = {
@@ -61,6 +96,9 @@ const dashboardExample = {
     thisWeek: { startsAt: "2026-10-19T00:00:00.000Z", endsAt: "2026-10-21T00:00:00.000Z", totalShipments: 0, totalDelivered: 0, successRate: 0 },
     thisMonth: { startsAt: "2026-10-01T00:00:00.000Z", endsAt: "2026-10-21T00:00:00.000Z", totalShipments: 0, totalDelivered: 0, successRate: 0 },
   },
+  monthlyCosts: [
+    { month: "2026-10", cost: "0", currency: "MMK", parcels: 0 },
+  ],
   recentOrders: [],
 };
 
@@ -97,6 +135,30 @@ export const orderSchemas = {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       qr: ref("ParcelQr"),
+    },
+  },
+  TrackingTimelineEntry: {
+    type: "object",
+    required: ["status", "previousStatus", "note", "createdAt"],
+    properties: {
+      status: { type: "string", enum: statusValues },
+      previousStatus: { type: "string", enum: statusValues, nullable: true },
+      note: { type: "string", nullable: true },
+      createdAt: { type: "string", format: "date-time" },
+    },
+  },
+  OrderStatusView: {
+    type: "object",
+    required: ["id", "orderCode", "status", "timeline"],
+    properties: {
+      id: { type: "string", format: "uuid" },
+      orderCode: { type: "string" },
+      status: { type: "string", enum: statusValues },
+      timeline: {
+        type: "array",
+        description: "Status history in ascending time order, beginning with the CREATED entry.",
+        items: ref("TrackingTimelineEntry"),
+      },
     },
   },
   DashboardPeriod: {
@@ -175,9 +237,19 @@ export const orderSchemas = {
       deliveryRider: { type: "object", nullable: true, description: "Always null until rider assignment is implemented." },
     },
   },
+  DashboardMonthlyCost: {
+    type: "object",
+    required: ["month", "cost", "currency", "parcels"],
+    properties: {
+      month: { type: "string", pattern: "^\\d{4}-\\d{2}$", description: "Calendar month in UTC." },
+      cost: { type: "string", description: "Total server-snapshotted delivery fees for the month in MMK, as a decimal string." },
+      currency: { type: "string", enum: ["MMK"] },
+      parcels: { type: "integer", minimum: 0 },
+    },
+  },
   OrderDashboard: {
     type: "object",
-    required: ["totalParcels", "statusCounts", "deliveryOverview", "recentOrders"],
+    required: ["totalParcels", "statusCounts", "deliveryOverview", "monthlyCosts", "recentOrders"],
     properties: {
       totalParcels: { type: "integer", minimum: 0 },
       statusCounts: {
@@ -190,6 +262,7 @@ export const orderSchemas = {
         required: ["thisWeek", "thisMonth"],
         properties: { thisWeek: ref("DashboardPeriod"), thisMonth: ref("DashboardPeriod") },
       },
+      monthlyCosts: { type: "array", items: ref("DashboardMonthlyCost") },
       recentOrders: { type: "array", maxItems: 5, items: ref("DashboardRecentOrder") },
     },
   },
@@ -229,7 +302,7 @@ export const orderSchemas = {
   },
   OrderList: {
     type: "object",
-    required: ["orders", "pagination"],
+    required: ["orders", "pagination", "tabCounts"],
     properties: {
       orders: { type: "array", items: ref("ListedOrder") },
       pagination: {
@@ -242,11 +315,21 @@ export const orderSchemas = {
           totalPages: { type: "integer", minimum: 0 },
         },
       },
+      tabCounts: {
+        type: "object",
+        required: ["all", "needsPickup", "exceptions"],
+        properties: {
+          all: { type: "integer", minimum: 0, description: "Total parcels across every status." },
+          needsPickup: { type: "integer", minimum: 0, description: "Parcels awaiting Operator pickup (CREATED)." },
+          exceptions: { type: "integer", minimum: 0, description: "Parcels in a failed or cancelled state (FAILED, CANCELLED)." },
+        },
+      },
     },
   },
   CreatedOrder: {
     type: "object",
-    required: [...pricingRequired,
+    required: [
+      ...Object.keys(createdPricingFields),
       "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt", "qr",
@@ -275,7 +358,8 @@ export const orderSchemas = {
   },
   OrderDetail: {
     type: "object",
-    required: [...pricingRequired,
+    required: [
+      ...pricingRequired,
       "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
@@ -325,29 +409,6 @@ export const orderSchemas = {
   UpdatedOrderDetail: updatedOrderDetailSchema,
 };
 
-const listedExample = {
-  id: createdExample.id,
-  orderCode: createdExample.orderCode,
-  recipientName: createdExample.recipientName,
-  phoneNumber: createdExample.phoneNumber,
-  township: createdExample.township,
-  deliveryAddress: createdExample.deliveryAddress,
-  parcelWeight: createdExample.parcelWeight,
-  parcelWeightUnit: "kg",
-  codAmount: createdExample.codAmount,
-  currency: "MMK",
-  senderName: createdExample.senderName,
-  status: "CREATED",
-  createdAt: createdExample.createdAt,
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator" },
-};
-
-const listExample = {
-  orders: [listedExample],
-  pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-};
-
 const orderDetailExample = {
   ...createdExample,
   owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
@@ -357,7 +418,7 @@ const orderDetailExample = {
 
 const statusUpdateExample = {
   status: "CANCELLED",
-  note: "Shop cancelled before parcel receipt",
+  note: "Customer requested cancellation",
 };
 
 const updatedOrderDetailExample = {
@@ -371,7 +432,7 @@ export const orderPaths = {
   "/api/sme/dashboard": {
     get: {
       operationId: "getOrderDashboard", tags: ["SME"], summary: "Get the authenticated SME's dashboard",
-      description: "Returns parcel totals and status counts for the authenticated SME, plus current-week and current-month shipment cohorts based on order creation time. Periods use UTC and begin Monday/month-start; successRate is delivered divided by created shipments as a percentage. Includes at most five recent parcels with their status event timeline, QR PNG data URL and assigned Operator. This existing dashboard response does not expose Rider assignment; deliveryRider remains null. Operator monitoring and Rider assignment endpoints expose assignment details.",
+      description: "Returns parcel totals and status counts for the authenticated SME, plus current-week and current-month shipment cohorts based on order creation time. Periods use UTC and begin Monday/month-start; successRate is delivered divided by created shipments as a percentage. monthlyCosts reports the last six calendar months in UTC, oldest first: cost is the sum of server-snapshotted deliveryFee values for parcels created in that month and parcels is their count, so months without parcels report zero. COD remains a separate financial value. Includes at most five recent parcels with their status event timeline, QR PNG data URL and assigned Operator. Rider assignment is not represented in the current data model, so deliveryRider is null.",
       security: bearerSecurity,
       responses: {
         200: response("SME order dashboard", successSchema(ref("OrderDashboard")), { success: true, data: dashboardExample }),
@@ -382,13 +443,14 @@ export const orderPaths = {
   "/api/orders": {
     get: {
       operationId: "listOrders", tags: ["Orders"], summary: "List the authenticated SME's parcels",
-      description: "Returns the caller's own parcels, newest first. Search matches order code or recipient name; status filters by parcel status. Results are paginated; the pagination envelope reports page, pageSize, total matching records and totalPages. Access is always scoped to the authenticated SME; client-supplied owner/account/SME identifiers are ignored.",
+      description: "Returns the caller's own parcels, newest first. Search matches order code or recipient name; status filters by parcel status and tab filters by a saved view. Results are paginated; the pagination envelope reports page, pageSize, total matching records and totalPages. tabCounts reports the totals for every list tab (all, needsPickup, exceptions) regardless of the active tab, search or page. Tab views: all (every status), needs_pickup (CREATED), exceptions (FAILED, CANCELLED). Access is always scoped to the authenticated SME; client-supplied owner/account/SME identifiers are ignored.",
       security: bearerSecurity,
       parameters: [
         { name: "page", in: "query", required: false, schema: { type: "integer", minimum: 1, default: 1 }, description: "1-based page number. Invalid values are rejected." },
         { name: "pageSize", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 100, default: 20 }, description: "Records per page (1-100). Invalid values are rejected." },
         { name: "search", in: "query", required: false, schema: { type: "string", maxLength: 120 }, description: "Trimmed text matched against order code or recipient name." },
-        { name: "status", in: "query", required: false, schema: { type: "string", enum: ["CREATED"] }, description: "Filter by parcel status. Unsupported statuses are rejected." },
+        { name: "status", in: "query", required: false, schema: { type: "string", enum: statusValues }, description: "Filter by an exact parcel status. Takes precedence over tab when both are supplied." },
+        { name: "tab", in: "query", required: false, schema: { type: "string", enum: ["all", "needs_pickup", "exceptions"], default: "all" }, description: "Saved parcel view. all = every status; needs_pickup = CREATED; exceptions = FAILED, CANCELLED." },
       ],
       responses: {
         200: response("Paginated parcel list", successSchema(ref("OrderList")), { success: true, data: listExample }),
@@ -399,7 +461,7 @@ export const orderPaths = {
     },
     post: {
       operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
-      description: "Authenticated SME users create an order for their own profile and assign it to an existing OPERATOR profile using operatorId. The server validates the target profile role and persists the operator profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from the server-resolved fixed delivery fee. destinationCity and deliveryProviderId are required. Active city pricing is resolved and snapshotted in a Serializable transaction with bounded retries. Client deliveryFee is rejected. Delivery instructions are stored as text only.",
+      description: "Authenticated SME users create an order for their own profile. destinationCity and deliveryProviderId are required; the server resolves an Operator within that provider when operatorId is omitted, or validates the supplied Operator belongs to that provider. Active city pricing is resolved and snapshotted in a Serializable transaction with bounded retries. Client deliveryFee is rejected. COD is stored separately from the server-resolved delivery fee.",
       security: bearerSecurity,
       requestBody: requestBody(ref("CreateOrderInput"), createExample),
       responses: {
@@ -407,7 +469,7 @@ export const orderPaths = {
         ...errorResponses([400, 401, 403, 404, 409, 500], {
           403: ["FORBIDDEN", "Insufficient permissions."],
           404: ["OPERATOR_NOT_AVAILABLE", "Operator is not available."],
-          409: ["PROVIDER_CITY_UNAVAILABLE", "Active provider/city pricing is required; PRICING_CONFLICT or ORDER_CREATE_FAILED may also occur. Refresh and retry."],
+          409: ["ORDER_CREATE_FAILED", "Unable to create the order. Try again."],
         }),
       },
     },
@@ -447,12 +509,34 @@ export const orderPaths = {
     },
   },
   "/api/orders/{id}/status": {
+    get: {
+      operationId: "getOrderStatus", tags: ["Orders"], summary: "Read a parcel's delivery status",
+      description: [
+        "Returns the current delivery status and the timestamped status history of one parcel owned by the authenticated SME.",
+        "The path identifier is either the parcel's UUID id or its order code (PO followed by 16 hexadecimal characters, case-insensitive). Anything else is rejected with 400.",
+        "The response contains only the parcel id, order code, current status and status events; recipient name, phone number, delivery address, COD and coordinates are never included.",
+        "Ownership is enforced inside the database lookup, so another SME's parcel is reported exactly like a missing parcel and its existence is never revealed.",
+        "Status values are the canonical enum values CREATED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED and CANCELLED; clients map them to their own display labels.",
+      ].join(" "),
+      security: bearerSecurity,
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "string", maxLength: 64 }, description: "Parcel UUID id or order code (PO + 16 uppercase hex characters, case-insensitive). Anything else is rejected with 400." },
+      ],
+      responses: {
+        200: response("Parcel delivery status", successSchema(ref("OrderStatusView")), { success: true, data: statusViewExample }),
+        ...errorResponses([400, 401, 403, 404, 500], {
+          403: ["FORBIDDEN", "Insufficient permissions."],
+          404: ["ORDER_NOT_FOUND", "Parcel not found."],
+        }),
+      },
+    },
     patch: {
       operationId: "updateOrderStatus", tags: ["Orders"], summary: "Cancel an owned CREATED parcel (SME only)",
       description: [
         "Changes the status of one parcel owned by the authenticated SME and returns the updated parcel with previousStatus set to the status it moved from. The actor is always the authenticated user; ownership, actor ids and timestamps are never accepted from the client.",
         "Transition rules (only these are permitted; self-transitions are rejected):",
-        "Only CREATED → CANCELLED. SME owners cannot set PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED or FAILED; these transitions belong to Operator receipt or assigned Rider delivery APIs.",
+        "CREATED -> CANCELLED only;",
+        "SME owners cannot set PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED or FAILED; those transitions belong to Operator receipt or assigned Rider delivery APIs.",
         "DELIVERED, FAILED and CANCELLED are terminal: any change from them fails with 409 ORDER_IS_TERMINAL.",
         "Any other combination fails with 409 STATUS_TRANSITION_NOT_ALLOWED.",
         "If another request changes the status first, the update is rejected with 409 STATUS_UPDATE_CONFLICT instead of silently overwriting it.",

@@ -13,7 +13,7 @@ export function VerifyEmailPanel() {
   return (
     <div className="space-y-5">
       <p>Confirm your email address to finish setting up your account.</p>
-      {verification.error && <p role="alert" className="text-sm text-destructive">{verification.error}</p>}
+      {verification.error && <p role="alert" className="text-body-sm text-destructive">{verification.error}</p>}
       {verification.status === "pending" && <p role="status">Verifying your email…</p>}
       <Button className="min-h-10 w-full" disabled={!verification.canVerify} onClick={verification.verify}>Verify my email</Button>
       {verification.status === "error" && <ResendVerificationForm />}
