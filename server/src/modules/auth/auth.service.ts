@@ -40,12 +40,18 @@ export async function login(input: { email: string; password: string }) {
   const valid = await verifyPassword(input.password, account?.passwordHash ?? await dummyHash);
   if (!account || !valid) throw new AppError(401, "LOGIN_FAILED", "Invalid email or password.");
   if (!account.emailVerifiedAt) throw new AppError(403, "EMAIL_NOT_VERIFIED", "Verify your email before logging in.");
+  if (account.profile.role === "RIDER" && account.profile.deactivatedAt) {
+    throw new AppError(403, "ACCOUNT_DEACTIVATED", "This Rider account is inactive. Contact your Operator.");
+  }
   return issue(account);
 }
 export async function authenticate(accessToken: string) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(accessToken)) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
   const session = await repository.findSession(digest(accessToken));
-  if (!session || session.accessExpiresAt <= new Date() || !session.account.emailVerifiedAt) throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
+  if (!session || session.accessExpiresAt <= new Date() || !session.account.emailVerifiedAt
+    || (session.account.profile.role === "RIDER" && session.account.profile.deactivatedAt)) {
+    throw new AppError(401, "UNAUTHORIZED", "Invalid or expired access token.");
+  }
   return { id: session.account.id, email: session.account.email, role: session.account.profile.role, accessToken };
 }
 export async function refresh(refreshToken: string) {

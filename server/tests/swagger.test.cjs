@@ -49,6 +49,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'patch /api/operator/orders/{id}/receive',
     'get /api/operator/riders', 'get /api/operator/assignments', 'post /api/operator/assignments',
     'get /api/operator/riders/overview', 'get /api/operator/riders/invitations', 'get /api/operator/riders/{riderId}',
+    'patch /api/operator/riders/{riderId}', 'patch /api/operator/riders/{riderId}/deactivate', 'patch /api/operator/riders/{riderId}/reactivate',
     'get /api/operator/warehouse/overview', 'get /api/operator/warehouse/parcels',
     'get /api/rider/assignments', 'get /api/rider/assignments/{id}', 'patch /api/rider/assignments/{id}/status',
     'get /api/rider/profile', 'patch /api/rider/profile',
@@ -71,6 +72,8 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     assert.deepEqual(spec.components.schemas[name], z.toJSONSchema(schema, { target: 'openapi-3.0', io: 'input' }));
   }
   assert.deepEqual(spec.components.schemas.ProfileUpdate, { ...z.toJSONSchema(profileUpdateSchema, { target: 'openapi-3.0', io: 'input' }), minProperties: 1 });
+  const { operatorRiderUpdateSchema } = require('../dist/modules/riders/management/rider-management.validation');
+  assert.deepEqual(spec.paths['/api/operator/riders/{riderId}'].patch.requestBody.content['application/json'].schema, z.toJSONSchema(operatorRiderUpdateSchema, { target: 'openapi-3.0', io: 'input' }));
   function verifyRefs(node) {
     if (!node || typeof node !== 'object') return;
     if (node.$ref) {
@@ -83,6 +86,19 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   assert.equal(spec.components.schemas.Registration.properties.confirmationRequired.enum[0], true);
   assert.equal(spec.components.schemas.Registration.properties.accessToken, undefined);
   assert.ok(spec.paths['/api/auth/login'].post.responses['403']);
+  const login403Codes = Object.values(spec.paths['/api/auth/login'].post.responses['403'].content['application/json'].examples).map(example => example.value.error.code);
+  assert.ok(login403Codes.includes('EMAIL_NOT_VERIFIED'));
+  assert.ok(login403Codes.includes('ACCOUNT_DEACTIVATED'));
+  assert.match(spec.paths['/api/operator/assignments'].post.responses['404'].description, /deactivated/i);
+  const deactivate409 = Object.values(spec.paths['/api/operator/riders/{riderId}/deactivate'].patch.responses['409'].content['application/json'].examples).map(example => example.value.error.code);
+  assert.ok(deactivate409.includes('RIDER_HAS_ACTIVE_ASSIGNMENTS'));
+  assert.ok(deactivate409.includes('RIDER_DEACTIVATION_CONFLICT'));
+  assert.ok(spec.paths['/api/operator/riders/{riderId}/deactivate'].patch.requestBody === undefined);
+  const riderListParams = spec.paths['/api/operator/riders'].get.parameters.map(parameter => parameter.name);
+  for (const name of ['page', 'pageSize', 'search', 'workload', 'status', 'eligible']) assert.ok(riderListParams.includes(name), `Rider list docs need ${name}`);
+  for (const path of ['/api/operator/riders/invitations', '/api/operator/riders/{riderId}']) {
+    assert.ok(spec.paths[path].get.parameters.some(parameter => parameter.name === 'pageSize'), `${path} docs need pageSize`);
+  }
   for (const [path, schema] of [['/api/auth/verify-email', verifyEmailSchema], ['/api/auth/reset-password', resetPasswordSchema]]) {
     assert.equal(schema.safeParse(spec.paths[path].post.requestBody.content['application/json'].example).success, true);
   }
@@ -97,6 +113,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     assert.match(forbidden.description, /RIDER_PROVIDER_MEMBERSHIP_REQUIRED/);
     const codes = Object.values(forbidden.content['application/json'].examples).map(example => example.value.error.code);
     assert.ok(codes.includes('FORBIDDEN'));
+    assert.ok(codes.includes('RIDER_DEACTIVATED'));
     assert.ok(codes.includes('RIDER_PROVIDER_MEMBERSHIP_REQUIRED'));
     assert.ok(codes.includes('RIDER_PROFILE_INCOMPLETE'));
   }

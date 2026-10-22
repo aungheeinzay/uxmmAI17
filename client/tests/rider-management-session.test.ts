@@ -20,14 +20,39 @@ it("requires trusted Operator session and origin, and rejects scope injection", 
 });
 it("forwards fixed provider-scoped reads and pagination without browser tokens", async () => {
   const pagination = { page: 1, pageSize: 20, total: 0, totalPages: 0 };
-  expressAuth.mockImplementation(async (path: string) => ({ success: true, data: path.includes("overview") ? { totalRiders: 0, available: 0, assigned: 0, delivering: 0 } : path.includes("invitations") ? { invitations: [], pagination } : { riders: [], pagination } }));
-  const result = await riderManagementSession(request({ action: "list", query: { page: 1, pageSize: 20, search: "One", workload: "DELIVERING" }, invitationPage: 2 }));
+  expressAuth.mockImplementation(async (path: string) => ({ success: true, data: path.includes("overview") ? { totalRiders: 0, available: 0, assigned: 0, delivering: 0, inactive: 0 } : path.includes("invitations") ? { invitations: [], pagination } : { riders: [], pagination } }));
+  const result = await riderManagementSession(request({ action: "list", query: { page: 1, pageSize: 20, search: "One", workload: "DELIVERING" }, invitationPage: 2, invitationPageSize: 5 }));
   expect(result.status).toBe(200);
   expect(expressAuth).toHaveBeenCalledWith("/api/operator/riders?page=1&pageSize=20&search=One&workload=DELIVERING", undefined, token);
-  expect(expressAuth).toHaveBeenCalledWith("/api/operator/riders/invitations?page=2&pageSize=10", undefined, token);
+  expect(expressAuth).toHaveBeenCalledWith("/api/operator/riders/invitations?page=2&pageSize=5", undefined, token);
   expect(JSON.stringify(await result.json())).not.toContain(token);
 });
 it("rejects malformed backend detail contracts", async () => {
   expressAuth.mockResolvedValue({ success: true, data: { passwordHash: "private" } });
   expect((await riderManagementSession(request({ action: "detail", id, page: 1 }))).status).toBe(502);
+});
+const managedRider = { id, fullName: "Rider One", phone: null, email: "rider@example.test", providerId: id, provider: { id, name: "Provider" }, accountStatus: "ACTIVATED", isActive: true, deactivatedAt: null, vehicle: { type: null, plateNumber: null, model: null, color: null }, profileComplete: false, missingFields: ["phone"], completedAt: null, workload: "AVAILABLE", assignedTaskCount: 0, inProgressDeliveryCount: 0, activeAssignedTaskCount: 0, completedDeliveryCount: 0 };
+it("forwards the selected assignment page size", async () => {
+  expressAuth.mockResolvedValue({ success: true, data: { rider: managedRider, assignments: [], pagination: { page: 2, pageSize: 5, total: 0, totalPages: 0 } } });
+  expect((await riderManagementSession(request({ action: "detail", id, page: 2, pageSize: 5 }))).status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith(`/api/operator/riders/${id}?page=2&pageSize=5`, undefined, token);
+});
+it("forwards allowlisted edit and status actions to fixed provider-scoped PATCH paths", async () => {
+  expressAuth.mockImplementation(async () => ({ success: true, data: { rider: managedRider } }));
+  const input = { fullName: "Rider One", phone: "09123456789", vehicleType: "MOTORCYCLE", vehiclePlateNumber: "ABC-123" };
+  const updated = await riderManagementSession(request({ action: "update", id, input }));
+  expect(updated.status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith(`/api/operator/riders/${id}`, input, token, "PATCH");
+  const deactivated = await riderManagementSession(request({ action: "deactivate", id }));
+  expect(deactivated.status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith(`/api/operator/riders/${id}/deactivate`, {}, token, "PATCH");
+  const reactivated = await riderManagementSession(request({ action: "reactivate", id }));
+  expect(reactivated.status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith(`/api/operator/riders/${id}/reactivate`, {}, token, "PATCH");
+});
+it("rejects protected fields and mismatched Rider responses", async () => {
+  expect((await riderManagementSession(request({ action: "update", id, input: { fullName: "Rider One", phone: "09123456789", vehicleType: "BICYCLE", providerId: id } }))).status).toBe(400);
+  expect((await riderManagementSession(request({ action: "deactivate", id, role: "OPERATOR" }))).status).toBe(400);
+  expressAuth.mockResolvedValue({ success: true, data: { rider: { ...managedRider, id: "770e8400-e29b-41d4-a716-446655440000" } } });
+  expect((await riderManagementSession(request({ action: "deactivate", id }))).status).toBe(502);
 });

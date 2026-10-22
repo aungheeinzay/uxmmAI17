@@ -6,12 +6,12 @@ import { vehicleRequiresPlate, type RiderProfileUpdateInput } from "./rider-prof
 type Actor = { id: string; role: Role };
 type CompletionSource = Pick<repository.RiderProfileRow, "role" | "fullName" | "phone" | "providerId" | "riderProfile">;
 
-function normalizeOptional(value: string | undefined) {
+export function normalizeOptional(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 }
 
-function normalizePlate(value: string | undefined) {
+export function normalizePlate(value: string | undefined) {
   const trimmed = value?.trim().replace(/\s+/g, " ").toUpperCase();
   return trimmed ? trimmed : null;
 }
@@ -92,6 +92,9 @@ export async function updateRiderProfile(actor: Actor, input: RiderProfileUpdate
 export async function assertRiderProfileComplete(actorId: string) {
   const profile = await repository.findRiderProfile(actorId);
   if (!profile) throw new AppError(404, "PROFILE_NOT_FOUND", "Profile not found.");
+  if (profile.deactivatedAt) {
+    throw new AppError(403, "RIDER_DEACTIVATED", "This Rider account is inactive. Contact your Operator.");
+  }
   if (!profile.providerId) {
     throw new AppError(403, "RIDER_PROVIDER_MEMBERSHIP_REQUIRED", "Your Rider account is not linked to a delivery provider. Contact your Operator to finish setup.");
   }

@@ -1,6 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { warehouseQuerySchema, warehouseSearchParams, type WarehouseQuery, type WarehouseFilters as WarehouseFilterValues } from "../types/warehouse.types";
 import { useWarehouseParcels } from "../hooks/use-warehouse";
 import { WarehouseOverview } from "./warehouse-overview";
@@ -26,7 +27,8 @@ function WarehouseResults({ query, navigate }: { query: WarehouseQuery; navigate
     <section className="space-y-4" aria-label="Warehouse parcels"><div><h2 className="text-lg font-semibold">Warehouse parcels & delivery tracking</h2><p className="text-sm text-muted-foreground">Incoming CREATED and CANCELLED orders are excluded. Dates filter order creation, not receipt or dispatch.</p></div>
       <WarehouseFilters key={JSON.stringify(query)} query={query} apply={apply} clear={() => navigate({ page: 1, pageSize: 20 })} />
       <ParcelRequestState loading={parcels.isLoading} error={parcels.error} retry={parcels.retry} loadingMessage={parcels.isRefetching ? "Refreshing warehouse parcels…" : "Loading warehouse parcels…"} />
-      {parcels.data && <><label className="flex items-center justify-end gap-2 text-sm">Rows per page<select className="rounded-md border bg-background p-1.5" value={query.pageSize} onChange={event => navigate({ ...query, page: 1, pageSize: Number(event.target.value) })}>{Array.from(new Set([10, 20, 50, 100, query.pageSize])).sort((a, b) => a - b).map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+      {parcels.isRefetching && <p role="status" className="text-sm text-muted-foreground">Updating warehouse parcels…</p>}
+      {parcels.data && <><div className="flex justify-end"><PageSizeSelect value={query.pageSize} onChange={value => navigate({ ...query, page: 1, pageSize: value })} /></div>
         {parcels.data.orders.length ? <IncomingParcelsTable warehouse orders={parcels.data.orders} returnTo={returnTo} /> : <div className="rounded-xl border border-dashed p-10 text-center"><h3 className="font-medium">{filtered ? "No parcels match these filters" : "No warehouse parcels found"}</h3><p className="mt-2 text-sm text-muted-foreground">{filtered ? "Try different filters or return to the first page." : "Receive an incoming parcel to start warehouse operations."}</p></div>}
         <DeliveryPagination {...parcels.data.pagination} onPage={page => navigate({ ...query, page })} /></>}
     </section>

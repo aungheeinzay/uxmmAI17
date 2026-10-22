@@ -29,8 +29,10 @@ export function useOperatorResource<T>(resourceKey: string, load: (key: string) 
     return () => { active = false; };
   }, [key, scope, resourceKey, userId, role, load, errorMessage]);
   const current = result?.key === key && userId && role === "OPERATOR" ? result : null;
-  return { data: current?.data, error: current?.error,
-    isRefetching: !!userId && role === "OPERATOR" && !current && result?.scope === scope,
-    isLoading: !!userId && role === "OPERATOR" && !current,
+  const previous = userId && role === "OPERATOR" && result?.scope === scope ? result : null;
+  return { data: current ? current.data : previous?.data, error: current?.error,
+    // Keep the current table visible while a new filter/page request is in flight.
+    isRefetching: !!userId && role === "OPERATOR" && !current && !!previous,
+    isLoading: !!userId && role === "OPERATOR" && !current && !previous,
     retry: () => setAttempt(value => value + 1) };
 }

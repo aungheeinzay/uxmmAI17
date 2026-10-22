@@ -11,6 +11,9 @@ operatorAssignmentRouter.get("/riders", requireAuth, requireRole("OPERATOR"), ma
 operatorAssignmentRouter.get("/riders/overview", requireAuth, requireRole("OPERATOR"), management.overview);
 operatorAssignmentRouter.get("/riders/invitations", requireAuth, requireRole("OPERATOR"), management.invitations);
 operatorAssignmentRouter.get("/riders/:riderId", requireAuth, requireRole("OPERATOR"), management.detail);
+operatorAssignmentRouter.patch("/riders/:riderId", requireAuth, requireRole("OPERATOR"), management.update);
+operatorAssignmentRouter.patch("/riders/:riderId/deactivate", requireAuth, requireRole("OPERATOR"), management.deactivate);
+operatorAssignmentRouter.patch("/riders/:riderId/reactivate", requireAuth, requireRole("OPERATOR"), management.reactivate);
 operatorAssignmentRouter.get("/assignments", requireAuth, requireRole("OPERATOR"), controller.operatorList);
 operatorAssignmentRouter.post("/assignments", requireAuth, requireRole("OPERATOR"), controller.create);
 export const riderDeliveryRouter = Router();

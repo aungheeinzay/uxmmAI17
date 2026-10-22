@@ -23,6 +23,9 @@ model Profile {
   role      Role     @default(SME)
   providerId String? @map("provider_id") @db.Uuid
   provider DeliveryProvider? @relation("OperatorProvider", fields: [providerId], references: [id], onDelete: Restrict)
+  // Operational deactivation is distinct from email/account activation and workload.
+  // Historical assignments, orders and incidents are intentionally retained.
+  deactivatedAt DateTime? @map("deactivated_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   orders    ParcelOrder[]
@@ -35,6 +38,7 @@ model Profile {
   reviewedIncidents RiderIncident[] @relation("IncidentReviewer")
 
   @@index([providerId])
+  @@index([providerId, deactivatedAt])
   @@map("profiles")
 }
 

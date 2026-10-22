@@ -3,6 +3,17 @@ import { profileExample } from "../users/user.openapi";
 import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
 
 const credentialsExample = { email: "user@example.com", password: "example-password-only" };
+const loginForbidden = {
+  description: "EMAIL_NOT_VERIFIED: verify the email before logging in. ACCOUNT_DEACTIVATED: the Rider was operationally deactivated by an Operator.",
+  content: { "application/json": { schema: ref("Error"), examples: {
+    emailNotVerified: { summary: "Email not verified", value: { success: false, error: { code: "EMAIL_NOT_VERIFIED", message: "Verify your email before logging in." } } },
+    accountDeactivated: { summary: "Operationally deactivated Rider", value: { success: false, error: { code: "ACCOUNT_DEACTIVATED", message: "This Rider account is inactive. Contact your Operator." } } },
+  } } },
+};
+const loginResponses = {
+  ...errorResponses([400, 401, 429, 500], { 401: ["LOGIN_FAILED", "Invalid email or password."] }),
+  403: loginForbidden,
+};
 const sessionExample = {
   user: { id: profileExample.id, email: credentialsExample.email, profile: profileExample },
   accessToken: "EXAMPLE_ACCESS_TOKEN", refreshToken: "EXAMPLE_REFRESH_TOKEN",
@@ -64,13 +75,13 @@ export const authPaths = {
   } },
   "/api/auth/login": { post: {
     operationId: "login", tags: ["Authentication"], summary: "Log in",
-    description: "Verifies credentials and requires a verified email before creating an independent session. Passwords are case sensitive. Returns the same error for an unknown email or incorrect password.",
+    description: "Verifies credentials and requires a verified email before creating an independent session. Operationally deactivated Rider accounts are rejected until an Operator reactivates them. Passwords are case sensitive. Returns the same error for an unknown email or incorrect password.",
     security: [], requestBody: requestBody(ref("LoginInput"), credentialsExample),
-    responses: { 200: response("Session created", successSchema(ref("Session")), { success: true, data: sessionExample }), ...errorResponses([400, 401, 403, 429, 500], { 401: ["LOGIN_FAILED", "Invalid email or password."], 403: ["EMAIL_NOT_VERIFIED", "Verify your email before logging in."] }) },
+    responses: { 200: response("Session created", successSchema(ref("Session")), { success: true, data: sessionExample }), ...loginResponses },
   } },
   "/api/auth/refresh": { post: {
     operationId: "refreshSession", tags: ["Authentication"], summary: "Rotate the session tokens",
-    description: "Requires only the refresh token in the body and an email-verified account. Atomically replaces both tokens and resets their lifetimes. Both old tokens stop working; serialize refresh requests and replace both stored tokens.",
+    description: "Requires only the refresh token in the body and an email-verified, operationally active account. Atomically replaces both tokens and resets their lifetimes. Both old tokens stop working; serialize refresh requests and replace both stored tokens. Deactivation revokes existing sessions.",
     security: [], requestBody: requestBody(ref("RefreshInput"), { refreshToken: "EXAMPLE_REFRESH_TOKEN" }),
     responses: { 200: response("Replacement session tokens", successSchema(ref("Session")), { success: true, data: sessionExample }), ...errorResponses([400, 401, 429, 500], { 401: ["INVALID_REFRESH_TOKEN", "Invalid or expired refresh token."] }) },
   } },

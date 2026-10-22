@@ -79,6 +79,8 @@ export function loginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "EMAIL_NOT_VERIFIED")
       return "Verify your email before signing in. You can request a new verification link below.";
+    if (error.code === "ACCOUNT_DEACTIVATED")
+      return "This Rider account is inactive. Contact your Operator to reactivate it.";
     if (error.status === 401)
       return "Your email or password is incorrect. Please try again.";
     if (error.status === 400)

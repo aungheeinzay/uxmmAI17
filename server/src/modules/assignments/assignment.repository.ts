@@ -34,7 +34,7 @@ export function findAssignableOrder(tx: Transaction, id: string, providerId: str
   return tx.parcelOrder.findFirst({ where: { id, deliveryProviderId: providerId, owner: { role: "SME" } }, select: { id: true, status: true, assignment: { select: { id: true } } } });
 }
 export function findEligibleRider(tx: Transaction, id: string, providerId: string) {
-  return tx.profile.findFirst({ where: { id, role: "RIDER", providerId, account: { is: { emailVerifiedAt: { not: null } } } }, select: personSelect });
+  return tx.profile.findFirst({ where: { id, role: "RIDER", providerId, deactivatedAt: null, account: { is: { emailVerifiedAt: { not: null } } } }, select: personSelect });
 }
 export function insertAssignment(tx: Transaction, input: { orderId: string; riderId: string; assignedById: string }) {
   return tx.riderAssignment.create({ data: input, select: assignmentSelect });
@@ -78,7 +78,7 @@ export function listRiderAssignments(query: RiderAssignmentQuery, riderId: strin
   ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 export function listEligibleRiders(tx: Transaction, query: AssignmentQuery, providerId: string) {
-  const where = { role: "RIDER" as const, providerId, account: { is: { emailVerifiedAt: { not: null } } } };
+  const where = { role: "RIDER" as const, providerId, deactivatedAt: null, account: { is: { emailVerifiedAt: { not: null } } } };
   return Promise.all([
     tx.profile.findMany({ where, select: personSelect, orderBy: { id: "asc" }, skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
     tx.profile.count({ where }),

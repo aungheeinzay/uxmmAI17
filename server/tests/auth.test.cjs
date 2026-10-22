@@ -68,6 +68,21 @@ test('passwords use distinct salts and verify correctly',async()=>{
  assert.notEqual(one,two);assert.equal(await verifyPassword('password123',one),true);assert.equal(await verifyPassword('wrong',one),false);
 });
 
+test('operational deactivation blocks an existing session and future Rider logins', async () => {
+ const { hashPassword } = require('../dist/modules/auth/auth.password');
+ const id = randomUUID(), email = `deactivated-rider-${id}@example.test`, password = 'deactivated-rider-password';
+ accounts.set(email, { id, email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(),
+   profile: { id, role: 'RIDER', fullName: 'Fictional Rider', phone: '09123456789', providerId: randomUUID(), deactivatedAt: null } });
+ const login = await request('/api/auth/login', { email, password });
+ assert.equal(login.status, 200);
+ assert.equal((await request('/api/users/me', undefined, login.body.data.accessToken, 'GET')).status, 200);
+ accounts.get(email).profile.deactivatedAt = new Date();
+ assert.equal((await request('/api/users/me', undefined, login.body.data.accessToken, 'GET')).status, 401);
+ const blocked = await request('/api/auth/login', { email, password });
+ assert.equal(blocked.status, 403); assert.equal(blocked.body.error.code, 'ACCOUNT_DEACTIVATED');
+ accounts.get(email).profile.deactivatedAt = null;
+ assert.equal((await request('/api/auth/login', { email, password })).status, 200);
+});
 test('existing verified Operator without provider membership can still log in', async () => {
  const { hashPassword } = require('../dist/modules/auth/auth.password');
  const id = randomUUID(), email = `operator-${id}@example.test`, password = 'membership-test-password';

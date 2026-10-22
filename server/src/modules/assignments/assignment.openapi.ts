@@ -67,12 +67,13 @@ const errors = errorResponses([400, 401, 403, 404, 409, 500], {
   409: ["ASSIGNMENT_CONFLICT", "Parcel is already assigned or changed concurrently. Refresh before retrying."],
 });
 const riderForbidden = {
-  description: "FORBIDDEN: the account is not a Rider. RIDER_PROVIDER_MEMBERSHIP_REQUIRED: the Rider has no delivery-provider membership. RIDER_PROFILE_INCOMPLETE: full name, phone, vehicle type or a required plate is missing.",
+  description: "FORBIDDEN: the account is not a Rider. RIDER_DEACTIVATED: an Operator operationally deactivated the Rider. RIDER_PROVIDER_MEMBERSHIP_REQUIRED: the Rider has no delivery-provider membership. RIDER_PROFILE_INCOMPLETE: full name, phone, vehicle type or a required plate is missing.",
   content: {
     "application/json": {
       schema: ref("Error"),
       examples: {
         forbidden: { summary: "Wrong role", value: { success: false, error: { code: "FORBIDDEN", message: "Insufficient permissions." } } },
+        deactivated: { summary: "Operationally deactivated Rider", value: { success: false, error: { code: "RIDER_DEACTIVATED", message: "This Rider account is inactive. Contact your Operator." } } },
         providerMembershipRequired: { summary: "Provider membership missing", value: { success: false, error: { code: "RIDER_PROVIDER_MEMBERSHIP_REQUIRED", message: "Your Rider account is not linked to a delivery provider. Contact your Operator to finish setup." } } },
         profileIncomplete: { summary: "Profile incomplete", value: { success: false, error: { code: "RIDER_PROFILE_INCOMPLETE", message: "Complete your Rider profile before delivery operations. Missing: phone, vehicleType." } } },
       },
@@ -94,10 +95,10 @@ const rider = { tags: ["Rider Deliveries"], security: bearerSecurity };
 export const assignmentPaths = {
   "/api/operator/assignments": {
     post: { ...operator, operationId: "operatorAssignParcel", summary: "Assign a received parcel (OPERATOR only)",
-      description: "SME-owned order must be PICKED_UP and have no existing assignment. Rider must have a verified RIDER account with the same persisted provider membership as the Operator; the order deliveryProviderId must also match. Missing membership returns 409 PROVIDER_MEMBERSHIP_REQUIRED; other-provider parcels or Riders return 404. Eligibility checks and insertion run in a Serializable transaction, backed by unique orderId. assignedById comes from authentication. Assignment does not change order status or create a status event. No reassignment. DELIVERING workload does not impose a capacity restriction.",
+      description: "SME-owned order must be PICKED_UP and have no existing assignment. Rider must have a verified RIDER account with the same persisted provider membership as the Operator, no operational deactivation, and the order deliveryProviderId must also match. Missing membership returns 409 PROVIDER_MEMBERSHIP_REQUIRED; other-provider parcels or Riders return 404. Eligibility checks and insertion run in a Serializable transaction, backed by unique orderId. assignedById comes from authentication. Assignment does not change order status or create a status event. No reassignment. DELIVERING workload does not impose a capacity restriction.",
       requestBody: requestBody(ref("CreateAssignmentInput"), { orderId: "660e8400-e29b-41d4-a716-446655440000", riderId: "770e8400-e29b-41d4-a716-446655440000" }),
       responses: { ...errors,
-        404: response("ORDER_NOT_FOUND or RIDER_NOT_ELIGIBLE (missing, wrong-role, unverified, or accountless Rider)", ref("Error")),
+        404: response("ORDER_NOT_FOUND or RIDER_NOT_ELIGIBLE (missing, wrong-role, unverified, accountless or operationally deactivated Rider)", ref("Error")),
         409: response("ORDER_NOT_RECEIVED or ASSIGNMENT_CONFLICT (duplicate, foreign-key race or serialization conflict)", ref("Error")),
         201: response("Assignment created; order remains PICKED_UP", successSchema(ref("RiderAssignment"))),
       },

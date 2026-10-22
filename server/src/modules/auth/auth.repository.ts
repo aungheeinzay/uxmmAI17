@@ -22,9 +22,12 @@ export function createSession(
     await lockAccount(tx, data.accountId);
     const account = await tx.account.findUnique({
       where: { id: data.accountId },
+      include: { profile: true },
     });
-    // Prevent a login checked before a concurrent password reset from creating a stale session.
-    if (!account?.emailVerifiedAt || account.passwordHash !== passwordHash)
+    // Prevent a login checked before a concurrent password reset or deactivation
+    // from creating a stale session.
+    if (!account?.emailVerifiedAt || account.passwordHash !== passwordHash
+      || (account.profile.role === "RIDER" && account.profile.deactivatedAt))
       return null;
     return tx.authSession.create({ data });
   });
@@ -50,7 +53,7 @@ export function rotateSession(
       where: { id: current.accountId },
       include: { profile: true },
     });
-    if (!account?.emailVerifiedAt) return null;
+    if (!account?.emailVerifiedAt || (account.profile.role === "RIDER" && account.profile.deactivatedAt)) return null;
     const result = await tx.authSession.updateMany({
       where: {
         id: current.id,

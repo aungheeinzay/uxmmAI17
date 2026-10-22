@@ -146,7 +146,7 @@ test('all new endpoints require authentication and correct roles before database
 test('eligible riders use verified linked accounts and expose safe identity fields only', async () => {
   const data = await service.eligibleRiders({ id: ids.operator, role: 'OPERATOR' }, { page: 2, pageSize: 10 });
   assert.deepEqual(data.riders, [person(ids.rider)]);
-  assert.deepEqual(calls[0].where, { role: 'RIDER', providerId: ids.provider, account: { is: { emailVerifiedAt: { not: null } } } });
+  assert.deepEqual(calls[0].where, { role: 'RIDER', providerId: ids.provider, deactivatedAt: null, account: { is: { emailVerifiedAt: { not: null } } } });
   assert.equal(calls[0].skip, 10); assert.equal(calls[0].take, 10);
   assert.deepEqual(calls[0].select, { id: true, fullName: true, phone: true });
   state.eligible = false; assert.deepEqual((await service.eligibleRiders({ id: ids.operator, role: 'OPERATOR' }, { page: 1, pageSize: 20 })).riders, []);

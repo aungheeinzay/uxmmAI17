@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash, randomBytes } = require('node:crypto');
 test('provider Rider management, invitation activation, workload and assignment isolation on development PostgreSQL', {
   skip: process.env.PARCELOPS_RIDER_MANAGEMENT_DB_TEST !== 'confirmed', timeout: 120000,
 }, async () => {
@@ -10,6 +10,9 @@ test('provider Rider management, invitation activation, workload and assignment 
   const { prisma } = require('../dist/config/prisma');
   const management = require('../dist/modules/riders/management/rider-management.service');
   const assignments = require('../dist/modules/assignments/assignment.service');
+  const auth = require('../dist/modules/auth/auth.service');
+  const authPassword = require('../dist/modules/auth/auth.password');
+  const riderProfile = require('../dist/modules/riders/profile/rider-profile.service');
   const sent = [];
   require('../dist/lib/email/email.service').sendRiderInvitationEmail = async (email, token) => sent.push({ email, token });
   const invitations = require('../dist/modules/riders/rider.service');
@@ -47,7 +50,7 @@ test('provider Rider management, invitation activation, workload and assignment 
     assert.equal(list.riders.find(row => row.id === ids.available).workload, 'AVAILABLE');
     assert.equal(list.riders.find(row => row.id === ids.unverified).accountStatus, 'UNVERIFIED');
     assert.equal((await management.list(actor, { ...query, eligible: 'true' })).pagination.total, 3);
-    assert.deepEqual(await management.overview(actor), { totalRiders: 4, available: 2, assigned: 1, delivering: 1 });
+    assert.deepEqual(await management.overview(actor), { totalRiders: 4, available: 2, assigned: 1, delivering: 1, inactive: 0 });
     assert.equal((await management.list(actor, { ...query, workload: 'DELIVERING' })).riders.length, 1);
     assert.equal((await management.list(actor, { ...query, search: 'waiting' })).riders[0].id, ids.waiting);
     const detail = await management.detail(actor, ids.rider, query);
@@ -78,6 +81,52 @@ test('provider Rider management, invitation activation, workload and assignment 
     assert.equal((await management.invitations(actor, query)).pagination.total, 0);
     assert.equal((await management.overview(actor)).totalRiders, 5);
     await assert.rejects(() => invitations.inviteRider({ id: ids.unconfigured, role: 'OPERATOR' }, { email: `${prefix}-missing@example.test` }), error => error.code === 'PROVIDER_MEMBERSHIP_REQUIRED');
+    // Active work blocks deactivation without changing assignments or order status.
+    await assert.rejects(() => management.deactivate(actor, ids.rider), error => error.code === 'RIDER_HAS_ACTIVE_ASSIGNMENTS');
+    assert.equal(await prisma.riderAssignment.count({ where: { riderId: ids.rider } }), 8);
+    assert.equal(await prisma.parcelOrder.count({ where: { id: { in: orderIds }, status: { in: ['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'] } } }), 7);
+    // A completed delivery is retained through deactivation and reactivation.
+    const historyOrder = await order('DELIVERED', ids.available);
+    const historyBefore = await management.detail(actor, ids.available, query);
+    assert.equal(historyBefore.pagination.total, 1);
+    const access = randomBytes(32).toString('base64url');
+    await prisma.authSession.create({ data: { accountId: ids.available,
+      accessHash: createHash('sha256').update(access).digest('hex'), refreshHash: createHash('sha256').update(randomBytes(32)).digest('hex'),
+      accessExpiresAt: new Date(Date.now() + 900000), refreshExpiresAt: new Date(Date.now() + 86400000) } });
+    assert.equal((await auth.authenticate(access)).id, ids.available);
+    const deactivated = await management.deactivate(actor, ids.available);
+    assert.equal(deactivated.rider.isActive, false); assert.ok(deactivated.rider.deactivatedAt);
+    assert.equal(await prisma.profile.findUnique({ where: { id: ids.available } }).then(row => row.deactivatedAt !== null), true);
+    assert.equal(await prisma.authSession.count({ where: { accountId: ids.available } }), 0);
+    await assert.rejects(() => auth.authenticate(access), error => error.status === 401);
+    const password = 'fictional-lifecycle-password';
+    await prisma.account.update({ where: { id: ids.available }, data: { passwordHash: await authPassword.hashPassword(password) } });
+    await assert.rejects(() => auth.login({ email: `${prefix}-available@example.test`, password }), error => error.code === 'ACCOUNT_DEACTIVATED');
+    await assert.rejects(() => management.deactivate({ id: ids.otherOperator, role: 'OPERATOR' }, ids.available), error => error.status === 404);
+    const repeated = await management.deactivate(actor, ids.available);
+    assert.equal(repeated.rider.deactivatedAt, deactivated.rider.deactivatedAt);
+    const inactive = await management.list(actor, { ...query, status: 'INACTIVE' });
+    assert.deepEqual(inactive.riders.map(row => row.id), [ids.available]);
+    assert.equal((await management.list(actor, { ...query, workload: 'AVAILABLE' })).riders.some(row => row.id === ids.available), false);
+    assert.equal((await management.overview(actor)).inactive, 1);
+    const historyDuring = await management.detail(actor, ids.available, query);
+    assert.equal(historyDuring.pagination.total, 1); assert.equal(historyDuring.assignments[0].id, historyBefore.assignments[0].id);
+    assert.equal(await prisma.parcelOrder.findUnique({ where: { id: historyOrder } }).then(row => row.status), 'DELIVERED');
+    // Reactivation restores login/eligibility without bypassing profile completion.
+    const reactivated = await management.reactivate(actor, ids.available);
+    assert.equal(reactivated.rider.isActive, true); assert.equal(reactivated.rider.deactivatedAt, null);
+    assert.equal((await management.overview(actor)).inactive, 0);
+    assert.equal(await prisma.profile.findUnique({ where: { id: ids.available } }).then(row => row.deactivatedAt), null);
+    await assert.rejects(() => riderProfile.assertRiderProfileComplete(ids.available), error => error.code === 'RIDER_PROFILE_INCOMPLETE');
+    const login = await auth.login({ email: `${prefix}-available@example.test`, password });
+    assert.ok(login.accessToken);
+    const reactivatedOrder = await order('PICKED_UP');
+    await assignments.assignParcel(actor, { orderId: reactivatedOrder, riderId: ids.available });
+    const historyAfter = await management.detail(actor, ids.available, query);
+    assert.equal(historyAfter.assignments.some(task => task.orderId === historyOrder), true);
+    const repeatedReactivate = await management.reactivate(actor, ids.available);
+    assert.equal(repeatedReactivate.rider.deactivatedAt, null);
+    await assert.rejects(() => management.reactivate({ id: ids.otherOperator, role: 'OPERATOR' }, ids.available), error => error.status === 404);
   } finally {
     await prisma.orderStatusEvent.deleteMany({ where: { orderId: { in: orderIds } } });
     await prisma.riderAssignment.deleteMany({ where: { orderId: { in: orderIds } } });
