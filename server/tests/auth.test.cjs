@@ -67,3 +67,13 @@ test('passwords use distinct salts and verify correctly',async()=>{
  const one=await hashPassword('password123'),two=await hashPassword('password123');
  assert.notEqual(one,two);assert.equal(await verifyPassword('password123',one),true);assert.equal(await verifyPassword('wrong',one),false);
 });
+
+test('existing verified Operator without provider membership can still log in', async () => {
+ const { hashPassword } = require('../dist/modules/auth/auth.password');
+ const id = randomUUID(), email = `operator-${id}@example.test`, password = 'membership-test-password';
+ accounts.set(email, { id, email, passwordHash: await hashPassword(password), emailVerifiedAt: new Date(), profile: { id, role: 'OPERATOR', fullName: 'Operator', phone: null, providerId: null } });
+ const login = await request('/api/auth/login', { email, password });
+ assert.equal(login.status, 200);
+ const me = await request('/api/users/me', undefined, login.body.data.accessToken, 'GET');
+ assert.equal(me.status, 200); assert.equal(me.body.data.role, 'OPERATOR'); assert.equal(me.body.data.providerId, null);
+});

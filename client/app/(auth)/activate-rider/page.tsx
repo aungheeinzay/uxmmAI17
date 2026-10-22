@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { RiderActivationForm } from "@/features/auth/components/rider-activation-form";
 
-export const metadata: Metadata = { title: "Activate Rider | ParcelOps AI", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { title: "Activate Rider | SURFERTrack", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 export default function ActivateRiderPage() {
   return (

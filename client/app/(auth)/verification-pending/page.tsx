@@ -3,7 +3,7 @@ import { MailCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ResendVerificationForm } from "@/features/auth/components/resend-verification-form";
 
-export const metadata: Metadata = { title: "Check your email | ParcelOps AI" };
+export const metadata: Metadata = { title: "Check your email | SURFERTrack" };
 
 export default function VerificationPendingPage() {
   return (

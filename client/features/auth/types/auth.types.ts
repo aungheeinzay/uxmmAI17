@@ -5,6 +5,9 @@ export type AuthUser = {
   role: "SME" | "OPERATOR" | "RIDER";
   fullName: string | null;
   phone: string | null;
+  email?: string | null;
+  providerId?: string | null;
+  provider?: { id: string; name: string; isActive: boolean } | null;
 };
 export type RegisterResponse = {
   success: true;

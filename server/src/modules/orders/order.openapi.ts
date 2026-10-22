@@ -1,3 +1,4 @@
+import { pricingFields, pricingRequired, createdPricingFields } from "../providers/provider.openapi";
 import { createOrderSchema, listOrdersQuerySchema, updateOrderStatusSchema } from "./order.validation";
 import { OrderStatus } from "../../generated/prisma/enums";
 import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
@@ -6,6 +7,8 @@ import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response
 const statusValues = Object.values(OrderStatus);
 
 const createExample = {
+  destinationCity: "yangon",
+  deliveryProviderId: "770e8400-e29b-41d4-a716-446655440000",
   recipientName: "Aung Aung",
   phoneNumber: "09123456789",
   township: "Kamayut",
@@ -15,12 +18,18 @@ const createExample = {
   senderName: "Example Shop",
   deliveryInstructions: "Please call before delivery.",
   operatorId: "550e8400-e29b-41d4-a716-446655440000",
+  operatorId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
 const createdExample = {
+  destinationCity: "yangon",
+  deliveryProviderId: createExample.deliveryProviderId,
+  deliveryProvider: { id: createExample.deliveryProviderId, name: "Shwe Express" },
+  deliveryFee: "3500.00",
   id: "660e8400-e29b-41d4-a716-446655440000",
   orderCode: "POA1B2C3D4E5F678",
   ownerId: "550e8400-e29b-41d4-a716-446655440000",
+  operatorId: createExample.operatorId,
   operatorId: createExample.operatorId,
   recipientName: createExample.recipientName,
   phoneNumber: createExample.phoneNumber,
@@ -236,7 +245,7 @@ export const orderSchemas = {
   },
   ListedOrder: {
     type: "object",
-    required: [
+    required: [...pricingRequired,
       "id", "orderCode", "recipientName", "phoneNumber", "township", "deliveryAddress",
       "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "senderName", "status",
       "createdAt", "operatorId", "operator",
@@ -245,19 +254,28 @@ export const orderSchemas = {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       operatorId: { type: "string", format: "uuid", nullable: true },
+      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...pricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
       status: { type: "string", enum: statusValues },
       createdAt: { type: "string", format: "date-time" },
       operator: {
+      operator: {
         type: "object",
+        required: ["id", "fullName"],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          fullName: { type: "string", nullable: true },
+        },
+        nullable: true,
         required: ["id", "fullName"],
         properties: {
           id: { type: "string", format: "uuid" },
@@ -305,12 +323,14 @@ export const orderSchemas = {
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
       operatorId: { type: "string", format: "uuid" },
+      operatorId: { type: "string", format: "uuid" },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...createdPricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
@@ -334,12 +354,14 @@ export const orderSchemas = {
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
       operatorId: { type: "string", format: "uuid", nullable: true },
+      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...pricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
@@ -358,13 +380,18 @@ export const orderSchemas = {
         },
       },
       operator: {
+      operator: {
         type: "object",
+        required: ["id", "fullName", "phone"],
         required: ["id", "fullName", "phone"],
         properties: {
           id: { type: "string", format: "uuid" },
           fullName: { type: "string", nullable: true },
           phone: { type: "string", nullable: true },
+          fullName: { type: "string", nullable: true },
+          phone: { type: "string", nullable: true },
         },
+        nullable: true,
         nullable: true,
       },
     },
@@ -388,6 +415,8 @@ const listedExample = {
   createdAt: createdExample.createdAt,
   operatorId: createExample.operatorId,
   operator: { id: createExample.operatorId, fullName: "Test Operator" },
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator" },
 };
 
 const listExample = {
@@ -401,6 +430,8 @@ const orderDetailExample = {
   owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
   operatorId: createExample.operatorId,
   operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
 };
 
 const statusUpdateExample = {
@@ -410,7 +441,7 @@ const statusUpdateExample = {
 
 const updatedOrderDetailExample = {
   ...orderDetailExample,
-  status: "PICKED_UP",
+  status: "CANCELLED",
   previousStatus: "CREATED",
   updatedAt: "2026-10-20T01:00:00.000Z",
 };
@@ -518,7 +549,7 @@ export const orderPaths = {
       },
     },
     patch: {
-      operationId: "updateOrderStatus", tags: ["Orders"], summary: "Update a parcel's delivery status",
+      operationId: "updateOrderStatus", tags: ["Orders"], summary: "Cancel an owned CREATED parcel (SME only)",
       description: [
         "Changes the status of one parcel owned by the authenticated SME and returns the updated parcel with previousStatus set to the status it moved from. The actor is always the authenticated user; ownership, actor ids and timestamps are never accepted from the client.",
         "Transition rules (only these are permitted; self-transitions are rejected):",

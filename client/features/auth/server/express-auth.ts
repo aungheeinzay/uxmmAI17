@@ -18,7 +18,7 @@ export const tokenSchema = z.object({
 });
 export type Tokens = z.infer<typeof tokenSchema>["data"];
 
-export async function expressAuth(path: string, body?: unknown, accessToken?: string): Promise<unknown> {
+export async function expressAuth(path: string, body?: unknown, accessToken?: string, method?: "PATCH" | "PUT"): Promise<unknown> {
   const base = new URL(process.env.EXPRESS_API_URL ?? "http://localhost:4000");
   if (!["http:", "https:"].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
     throw new SessionError(503, "CONFIGURATION_ERROR");
@@ -26,7 +26,7 @@ export async function expressAuth(path: string, body?: unknown, accessToken?: st
   let response: Response;
   try {
     response = await fetch(new URL(path, base), {
-      method: body === undefined ? "GET" : "POST",
+      method: method ?? (body === undefined ? "GET" : "POST"),
       headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15000),
@@ -35,7 +35,7 @@ export async function expressAuth(path: string, body?: unknown, accessToken?: st
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const result = z.object({ error: z.object({ code: z.string() }) }).safeParse(payload);
-    const allowed = ["LOGIN_FAILED", "EMAIL_NOT_VERIFIED", "INVALID_REFRESH_TOKEN", "UNAUTHORIZED", "RATE_LIMITED", "VALIDATION_ERROR", "FORBIDDEN", "RIDER_INVITATION_CONFLICT", "EMAIL_DELIVERY_FAILED", "ORDER_NOT_FOUND"];
+    const allowed = ["LOGIN_FAILED", "EMAIL_NOT_VERIFIED", "INVALID_REFRESH_TOKEN", "UNAUTHORIZED", "RATE_LIMITED", "VALIDATION_ERROR", "FORBIDDEN", "RIDER_INVITATION_CONFLICT", "EMAIL_DELIVERY_FAILED", "ORDER_NOT_FOUND", "RIDER_NOT_ELIGIBLE", "RIDER_NOT_FOUND", "PROVIDER_MEMBERSHIP_REQUIRED", "CITY_PRICE_CONFLICT", "CITY_PRICE_NOT_FOUND", "PRICING_CONFLICT"];
     const code = result.success && allowed.includes(result.data.error.code) ? result.data.error.code : "SERVICE_UNAVAILABLE";
     throw new SessionError(response.status, code);
   }

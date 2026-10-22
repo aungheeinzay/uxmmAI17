@@ -10,6 +10,10 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "seed:dev": "tsx src/seed/run.ts",
+    "seed:providers": "tsx src/seed/providers.run.ts",
+    "operator:assign-provider": "tsx src/seed/operator-provider.run.ts",
+    "rider:assign-provider": "tsx src/seed/rider-provider.run.ts",
     "test": "npm run build && node --test tests/*.test.cjs"
   },
   "dependencies": {

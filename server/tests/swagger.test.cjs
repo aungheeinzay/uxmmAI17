@@ -37,10 +37,21 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   assert.equal(spec.openapi, '3.0.3');
   const operations = Object.entries(spec.paths).flatMap(([path, methods]) => Object.keys(methods).map(method => `${method} ${path}`));
   assert.deepEqual(operations.sort(), [
+    'get /api/delivery-providers', 'get /api/operator/my-provider', 'get /api/operator/my-provider/city-prices',
+    'post /api/operator/my-provider/city-prices', 'patch /api/operator/my-provider/city-prices/{priceId}',
     'post /api/auth/register', 'post /api/auth/login', 'post /api/auth/refresh',
     'post /api/auth/verify-email', 'post /api/auth/resend-verification', 'post /api/auth/forgot-password', 'post /api/auth/reset-password',
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',
     'post /api/riders/invitations', 'post /api/riders/activate',
+    'get /api/orders', 'post /api/orders', 'get /api/orders/{id}',
+    'get /api/orders/{id}/qr', 'patch /api/orders/{id}/status',
+    'get /api/operator/orders', 'get /api/operator/orders/{id}',
+    'patch /api/operator/orders/{id}/receive',
+    'get /api/operator/riders', 'get /api/operator/assignments', 'post /api/operator/assignments',
+    'get /api/operator/riders/overview', 'get /api/operator/riders/invitations', 'get /api/operator/riders/{riderId}',
+    'get /api/operator/warehouse/overview', 'get /api/operator/warehouse/parcels',
+    'get /api/rider/assignments', 'get /api/rider/assignments/{id}', 'patch /api/rider/assignments/{id}/status',
+    'get /api/sme/dashboard',
     'get /api/delivery/services', 'get /api/delivery/cities',
     'get /api/sme/dashboard',
     'get /api/orders', 'post /api/orders', 'get /api/orders/{id}', 'get /api/orders/{id}/qr', 'get /api/orders/{id}/status', 'patch /api/orders/{id}/status',

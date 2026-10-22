@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { citySchema } from "../providers/provider.validation";
 import { OrderStatus } from "../../generated/prisma/enums";
 
 // Local 09 + 7-9 subscriber digits, or international 959/+959 with the leading 0 omitted.

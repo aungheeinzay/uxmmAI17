@@ -50,7 +50,7 @@ export function LoginForm() {
         <Button type="submit" disabled={disabled} className="h-11 w-full gap-2">{disabled ? <><LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" />{login.isPending ? "Signing in…" : "Checking session…"}</> : <>Sign in<ArrowRight aria-hidden="true" /></>}</Button>
         <p className="text-right text-body-md"><Link href="/forgot-password" className="rounded-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">Forgot password?</Link></p>
         <p role="status" className="sr-only">{disabled ? "Please wait." : ""}</p>
-        <p className="border-t pt-5 text-center text-body-md text-muted-foreground">New to SURFERTrack? <Link className="rounded-sm font-medium text-brand underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4" href="/register">Create an account</Link></p>
+        <p className="border-t pt-5 text-center text-sm text-muted-foreground">New to SURFERTrack? <Link className="rounded-sm font-medium text-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4" href="/register">Create an account</Link></p>
       </form>
       {login.unverifiedEmail && <ResendVerificationForm key={login.unverifiedEmail} initialEmail={login.unverifiedEmail} />}
     </div>

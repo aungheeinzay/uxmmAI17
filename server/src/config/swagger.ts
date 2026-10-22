@@ -1,4 +1,6 @@
 import type { Express } from "express";
+import { riderManagementPaths, riderManagementSchemas } from "../modules/riders/management/rider-management.openapi";
+import { providerPaths, providerSchemas } from "../modules/providers/provider.openapi";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./env";
 import { authPaths, authSchemas } from "../modules/auth/auth.openapi";
@@ -6,19 +8,24 @@ import { userPaths, userSchemas } from "../modules/users/user.openapi";
 import { riderPaths, riderSchemas } from "../modules/riders/rider.openapi";
 import { deliveryPaths, deliverySchemas } from "../modules/delivery/delivery.openapi";
 import { orderPaths, orderSchemas } from "../modules/orders/order.openapi";
+import { operatorPaths, operatorSchemas } from "../modules/operator/operator.openapi";
+import { assignmentPaths, assignmentSchemas } from "../modules/assignments/assignment.openapi";
+import { warehousePaths, warehouseSchemas } from "../modules/operator/warehouse/warehouse.openapi";
 import { errorSchema, response } from "../lib/openapi";
 
 export const openApiDocument = {
   openapi: "3.0.3",
   info: { title: "ParcelOps AI API", version: "1.0.0", description: "Database-backed authentication and profiles. Use an opaque access token with Authorize; refresh tokens belong in the refresh request body." },
   servers: [{ url: "/", description: "Current server" }],
-  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "SME" }, { name: "Orders" }, { name: "Riders" }, { name: "Delivery" }, { name: "Health" }],
+  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "SME" }, { name: "Orders" }, { name: "SME" }, { name: "Operator" }, { name: "Operator Warehouse" }, { name: "Delivery Providers", description: "Operator-managed providers and fixed city fees; authenticated SME discovery." }, { name: "Riders" }, { name: "Rider Deliveries" }, { name: "Delivery" }, { name: "Health" }],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...deliverySchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...deliverySchemas },
   },
   paths: {
-    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...deliveryPaths,
+    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...deliveryPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
+    ...providerPaths,
+    ...riderManagementPaths,
     "/health": { get: {
       operationId: "health", tags: ["Health"], summary: "Check server health",
       description: "Returns process availability; does not check the database.", security: [],

@@ -1,0 +1,14 @@
+import { Router } from "express";
+import { requireAuth } from "../../middleware/require-auth";
+import { requireRole } from "../../middleware/require-role";
+import * as controller from "./provider.controller";
+export const providerAdminRouter = Router();
+providerAdminRouter.use(requireAuth, requireRole("OPERATOR"));
+providerAdminRouter.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+providerAdminRouter.get("/", controller.myProvider);
+providerAdminRouter.get("/city-prices", controller.cityPrices);
+providerAdminRouter.post("/city-prices", controller.createPrice);
+providerAdminRouter.patch("/city-prices/:priceId", controller.updatePrice);
+export const providerRouter = Router();
+providerRouter.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+providerRouter.get("/", requireAuth, requireRole("SME"), controller.available);

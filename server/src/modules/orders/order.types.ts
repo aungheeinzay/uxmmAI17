@@ -51,7 +51,7 @@ export type ListedOrder = {
   operator: { id: string; fullName: string | null } | null;
 };
 
-// Full parcel detail for one order the caller owns, including owner and Operator.
+// Full parcel detail for one order the caller owns, including owner and delivery service.
 export type OrderDetail = {
   id: string;
   orderCode: string;
