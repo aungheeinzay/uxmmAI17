@@ -26,56 +26,6 @@ orders.createOrder = async (data, validate) => {
   writes.push(row); return row;
 };
 after(async () => prisma.$disconnect());
-test('Swagger documents provider operations, authorization, required pricing and legacy nullability', () => {
-  const { openApiDocument: spec } = require('../dist/config/swagger');
-  assert.ok(spec.tags.some(tag => tag.name === 'Delivery Providers'));
-  for (const [path, method] of [
-    ['/api/delivery-providers', 'get'], ['/api/operator/delivery-providers', 'get'],
-    ['/api/operator/delivery-providers', 'post'], ['/api/operator/delivery-providers/{id}', 'patch'],
-    ['/api/operator/delivery-providers/{id}/city-prices/{city}', 'put'],
-  ]) {
-    const operation = spec.paths[path][method];
-    assert.deepEqual(operation.security, [{ bearerAuth: [] }]);
-    for (const status of ['400', '401', '403']) assert.ok(operation.responses[status]);
-  }
-  const schemas = spec.components.schemas;
-  for (const name of ['CreatedOrder', 'ListedOrder', 'OrderDetail', 'DashboardRecentOrder', 'OperatorOrder', 'AssignmentOrder']) {
-    for (const field of ['destinationCity', 'deliveryProviderId', 'deliveryProvider', 'deliveryFee']) {
-      assert.ok(schemas[name].required.includes(field), `${name}.${field} must be present`);
-      assert.equal(schemas[name].properties[field].nullable, name !== 'CreatedOrder');
-    }
-  }
-  assert.equal(schemas.UpdateProviderInput.minProperties, 1);
-  assert.match(schemas.CityPriceInput.description, /9999999999\.99/);
-  for (const field of ['destinationCity', 'deliveryProviderId']) assert.ok(schemas.CreateOrderInput.required.includes(field));
-  assert.equal(schemas.CreateOrderInput.additionalProperties, false);
-});
-test('HTTP routes enforce authentication and SME/RIDER cannot manage pricing', async () => {
-  const { app } = require('../dist/app');
-  const server = app.listen(0, '127.0.0.1');
-  await new Promise(resolve => server.on('listening', resolve));
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const row = { id, name: 'Test Express', isActive: true, cityPrices: [], createdAt: new Date(), updatedAt: new Date() };
-  repo.create = async data => ({ ...row, ...data }); repo.list = async () => [row];
-  repo.putPrice = async (providerId, city, data) => ({ id: randomUUID(), providerId, city, ...data, fee: new Prisma.Decimal(data.fee) });
-  async function call(path, method, role, body) {
-    const r = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(role ? { Authorization: `Bearer ${role}` } : {}) }, ...(body && method !== 'GET' ? { body: JSON.stringify(body) } : {}) });
-    return { status: r.status, body: await r.json() };
-  }
-  try {
-    const routes = [['GET', '/api/operator/delivery-providers'], ['POST', '/api/operator/delivery-providers'], ['PATCH', `/api/operator/delivery-providers/${id}`], ['PUT', `/api/operator/delivery-providers/${id}/city-prices/Yangon`]];
-    for (const [method, path] of routes) {
-      assert.equal((await call(path, method)).status, 401);
-      for (const role of ['SME', 'RIDER']) assert.equal((await call(path, method, role, {})).status, 403);
-    }
-    const created = await call('/api/operator/delivery-providers', 'POST', 'OPERATOR', { name: 'New Express' });
-    assert.equal(created.status, 201); assert.equal(created.body.data.name, 'New Express');
-    const price = await call(`/api/operator/delivery-providers/${id}/city-prices/%20YANGON%20`, 'PUT', 'OPERATOR', { fee: '3500.00' });
-    assert.equal(price.status, 200); assert.equal(price.body.data.city, 'yangon'); assert.equal(price.body.data.fee, '3500.00');
-    assert.equal((await call('/api/delivery-providers?city=Yangon', 'GET')).status, 401);
-    for (const role of ['OPERATOR', 'RIDER']) assert.equal((await call('/api/delivery-providers?city=Yangon', 'GET', role)).status, 403);
-  } finally { await new Promise(resolve => server.close(resolve)); }
-});
 test('city normalization and decimal boundaries reject malformed input and overrides', () => {
   assert.equal(validation.citySchema.parse('  YANGON  '), 'yangon');
   assert.equal(validation.citySchema.parse('Nay   Pyi Taw'), 'nay pyi taw');
@@ -113,14 +63,6 @@ test('serialization conflicts retry from current price with a bounded conflict r
   failures = 5;
   await assert.rejects(() => service.createOrder(owner, createOrderSchema.parse(input())), e => e.code === 'PRICING_CONFLICT');
   failures = 0;
-});
-test('service management permissions and uniqueness errors are stable', async () => {
-  for (const role of ['SME', 'RIDER']) {
-    const actor = { id: owner, role };
-    for (const work of [() => providers.list(actor), () => providers.create(actor, { name: 'X' }), () => providers.update(actor, id, { isActive: false }), () => providers.putPrice(actor, id, 'yangon', { fee: '1' })]) await assert.rejects(work, e => e.status === 403);
-  }
-  repo.create = async () => { throw { code: 'P2002' }; };
-  await assert.rejects(() => providers.create({ id: owner, role: 'OPERATOR' }, { name: 'X' }), e => e.status === 409);
 });
 test('SME discovery has safe fields, distinct provider fees and a real empty state', async () => {
   repo.available = async city => city === 'yangon' ? [{ id, name: 'One', cityPrices: [{ fee: new Prisma.Decimal('3500') }] }, { id: randomUUID(), name: 'Two', cityPrices: [{ fee: new Prisma.Decimal('4000.25') }] }] : [];

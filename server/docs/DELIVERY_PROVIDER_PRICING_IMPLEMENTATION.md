@@ -1,5 +1,9 @@
 # Implementation report — 22 October 2026
 
+> Historical report for commit 13864df. The Operator catalog-management workflow below
+> has been superseded by [OPERATOR_PROVIDER_MEMBERSHIP_IMPLEMENTATION.md](OPERATOR_PROVIDER_MEMBERSHIP_IMPLEMENTATION.md).
+> Use DELIVERY_PROVIDER_PRICING_API.md for the current contract.
+
 Implemented provider management and city-price upsert APIs, SME discovery,
 server-authoritative order pricing, role-scoped read fields, Operator management UI,
 OpenAPI schemas, tests and the SME integration guide. See

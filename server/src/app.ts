@@ -28,7 +28,7 @@ app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/sme", smeRouter);
 app.use("/api/operator", operatorRouter);
-app.use("/api/operator/delivery-providers", providerAdminRouter);
+app.use("/api/operator/my-provider", providerAdminRouter);
 app.use("/api/delivery-providers", providerRouter);
 app.use("/api/operator", operatorAssignmentRouter);
 app.use("/api/rider", riderDeliveryRouter);

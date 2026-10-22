@@ -33,4 +33,7 @@ export const authUserSchema = z.object({
   role: z.enum(["SME", "OPERATOR", "RIDER"]),
   fullName: z.string().nullable(),
   phone: z.string().nullable(),
+  email: z.string().email().nullable().optional(),
+  providerId: z.string().uuid().nullable().optional(),
+  provider: z.object({ id: z.string().uuid(), name: z.string(), isActive: z.boolean() }).nullable().optional(),
 });
