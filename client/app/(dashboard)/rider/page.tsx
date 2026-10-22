@@ -1,2 +1,2 @@
-import { AssignmentList } from "@/features/deliveries/components/assignment-list";
-export default function Page() { return <AssignmentList />; }
+import { RiderDashboard } from "@/features/deliveries/components/rider-dashboard";
+export default function Page() { return <RiderDashboard />; }

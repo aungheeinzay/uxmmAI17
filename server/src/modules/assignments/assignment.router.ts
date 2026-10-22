@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/require-auth";
 import { requireRole } from "../../middleware/require-role";
+import { requireCompleteRiderProfile } from "../../middleware/require-rider-profile";
 import * as controller from "./assignment.controller";
 import * as management from "../riders/management/rider-management.controller";
 
@@ -14,6 +15,6 @@ operatorAssignmentRouter.get("/assignments", requireAuth, requireRole("OPERATOR"
 operatorAssignmentRouter.post("/assignments", requireAuth, requireRole("OPERATOR"), controller.create);
 export const riderDeliveryRouter = Router();
 riderDeliveryRouter.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
-riderDeliveryRouter.get("/assignments", requireAuth, requireRole("RIDER"), controller.riderList);
-riderDeliveryRouter.get("/assignments/:id", requireAuth, requireRole("RIDER"), controller.riderDetail);
-riderDeliveryRouter.patch("/assignments/:id/status", requireAuth, requireRole("RIDER"), controller.updateStatus);
+riderDeliveryRouter.get("/assignments", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.riderList);
+riderDeliveryRouter.get("/assignments/:id", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.riderDetail);
+riderDeliveryRouter.patch("/assignments/:id/status", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.updateStatus);

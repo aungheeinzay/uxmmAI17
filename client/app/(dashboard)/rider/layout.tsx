@@ -1,9 +1,12 @@
 import { RoleGuard } from "@/features/auth/components/role-guard";
-import { DashboardShell } from "@/features/auth/components/dashboard-shell";
+import { RiderProfileGate } from "@/features/rider-profile/components/rider-profile-gate";
+import { RiderShell } from "@/features/deliveries/components/rider-shell";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <RoleGuard role="RIDER">
-      <DashboardShell role="RIDER">{children}</DashboardShell>
+      <RiderProfileGate>
+        <RiderShell>{children}</RiderShell>
+      </RiderProfileGate>
     </RoleGuard>
   );
 }

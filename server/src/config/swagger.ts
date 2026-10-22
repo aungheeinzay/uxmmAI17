@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { riderManagementPaths, riderManagementSchemas } from "../modules/riders/management/rider-management.openapi";
+import { riderProfilePaths, riderProfileSchemas } from "../modules/riders/profile/rider-profile.openapi";
 import { providerPaths, providerSchemas } from "../modules/providers/provider.openapi";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./env";
@@ -16,15 +17,28 @@ export const openApiDocument = {
   openapi: "3.0.3",
   info: { title: "ParcelOps AI API", version: "1.0.0", description: "Database-backed authentication and profiles. Use an opaque access token with Authorize; refresh tokens belong in the refresh request body." },
   servers: [{ url: "/", description: "Current server" }],
-  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "Orders" }, { name: "SME" }, { name: "Operator" }, { name: "Operator Warehouse" }, { name: "Delivery Providers", description: "Operator-managed providers and fixed city fees; authenticated SME discovery." }, { name: "Riders" }, { name: "Rider Deliveries" }, { name: "Health" }],
+  tags: [
+    { name: "Authentication" },
+    { name: "Users" },
+    { name: "Orders" },
+    { name: "SME" },
+    { name: "Operator" },
+    { name: "Operator Warehouse" },
+    { name: "Delivery Providers", description: "Operator-managed providers and fixed city fees; authenticated SME discovery." },
+    { name: "Riders", description: "Rider invitations and activation. Riders are created only through an authenticated Operator invitation and activate through the existing email/password flow." },
+    { name: "Rider Profile", description: "Authenticated Rider onboarding and vehicle details. Profile read/update stay reachable while onboarding is incomplete." },
+    { name: "Rider Deliveries", description: "Authenticated Rider assignments and status transitions. Every delivery operation requires a completed Rider profile and delivery-provider membership; onboarding endpoints remain available while incomplete." },
+    { name: "Health" },
+  ],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas },
   },
   paths: {
     ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
     ...providerPaths,
     ...riderManagementPaths,
+    ...riderProfilePaths,
     "/health": { get: {
       operationId: "health", tags: ["Health"], summary: "Check server health",
       description: "Returns process availability; does not check the database.", security: [],

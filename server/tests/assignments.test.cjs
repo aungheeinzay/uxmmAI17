@@ -86,6 +86,12 @@ prisma.riderAssignment.findMany = async args => {
 prisma.riderAssignment.count = async args => state.assignment && (!args.where.riderId || args.where.riderId === state.assignment.riderId) ? 1 : 0;
 prisma.profile.findMany = async args => { calls.push(args); return state.eligible ? [person(ids.rider)] : []; };
 prisma.profile.count = async () => state.eligible ? 1 : 0;
+// Completion guard reads persisted Rider identity/vehicle/provider data.
+const completeRider = id => ({ id, role: 'RIDER', fullName: 'Fictional Rider', phone: 'TEST-NOT-DIALABLE',
+  providerId: ids.provider, provider: { id: ids.provider, name: 'Fictional Provider' },
+  account: { email: `${id}@example.invalid`, emailVerifiedAt: new Date() },
+  riderProfile: { vehicleType: 'MOTORCYCLE', vehiclePlateNumber: 'ABC-123', vehicleModel: null, vehicleColor: null, completedAt: new Date() } });
+prisma.profile.findUnique = async args => args.where.id === ids.rider || args.where.id === ids.other ? completeRider(args.where.id) : null;
 beforeEach(() => {
   state = fresh(); queue = Promise.resolve(); failEvent = false; failRead = false; failConditional = false; txError = undefined; uniqueError = false; transactionOptions = []; calls = [];
 });

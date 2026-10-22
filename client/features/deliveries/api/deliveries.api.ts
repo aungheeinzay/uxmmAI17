@@ -17,6 +17,8 @@ export const updateDelivery = (input: z.infer<typeof statusRequestSchema>) => ca
 export function deliveryError(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 401) return "Your session expired. Sign in again.";
+    if (error.status === 403 && error.code === "RIDER_PROFILE_INCOMPLETE") return "Complete your Rider profile before using deliveries.";
+    if (error.status === 403 && error.code === "RIDER_PROVIDER_MEMBERSHIP_REQUIRED") return "Your Rider account is not linked to a delivery provider. Contact your Operator to finish setup.";
     if (error.status === 403) return "You do not have permission for this delivery action.";
     if (error.status === 404 && error.code === "RIDER_NOT_ELIGIBLE") return "An activated Rider account was not found.";
     if (error.status === 404) return "The parcel, assignment or eligible Rider was not found. Refresh and try again.";

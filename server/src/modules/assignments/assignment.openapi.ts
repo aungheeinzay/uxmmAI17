@@ -50,6 +50,22 @@ const errors = errorResponses([400, 401, 403, 404, 409, 500], {
   404: ["ASSIGNMENT_NOT_FOUND", "Assignment not found."],
   409: ["ASSIGNMENT_CONFLICT", "Parcel is already assigned or changed concurrently. Refresh before retrying."],
 });
+const riderForbidden = {
+  description: "FORBIDDEN: the account is not a Rider. RIDER_PROVIDER_MEMBERSHIP_REQUIRED: the Rider has no delivery-provider membership. RIDER_PROFILE_INCOMPLETE: full name, phone, vehicle type or a required plate is missing.",
+  content: {
+    "application/json": {
+      schema: ref("Error"),
+      examples: {
+        forbidden: { summary: "Wrong role", value: { success: false, error: { code: "FORBIDDEN", message: "Insufficient permissions." } } },
+        providerMembershipRequired: { summary: "Provider membership missing", value: { success: false, error: { code: "RIDER_PROVIDER_MEMBERSHIP_REQUIRED", message: "Your Rider account is not linked to a delivery provider. Contact your Operator to finish setup." } } },
+        profileIncomplete: { summary: "Profile incomplete", value: { success: false, error: { code: "RIDER_PROFILE_INCOMPLETE", message: "Complete your Rider profile before delivery operations. Missing: phone, vehicleType." } } },
+      },
+    },
+  },
+};
+function riderErrorResponses(statuses: number[], overrides: Record<number, [string, string]> = {}) {
+  return { ...errorResponses(statuses.filter(status => status !== 403), overrides), 403: riderForbidden };
+}
 const query = Object.entries(inputSchema(assignmentQuerySchema).properties!).map(([name, schema]) => ({ in: "query", name, required: false, schema }));
 const idParameter = [{ in: "path", name: "id", required: true, schema: uuid }];
 const operator = { tags: ["Operator"], security: bearerSecurity };
@@ -71,16 +87,16 @@ export const assignmentPaths = {
     },
   },
   "/api/rider/assignments": { get: { ...rider, operationId: "riderAssignments", summary: "List my assignments (RIDER only)",
-    description: "Filters by authenticated Rider ID at the database boundary. riderId query overrides are rejected. Includes recipient contact/address and exact COD strings for assigned deliveries only; all statuses including completed tasks. Newest assignedAt then id first.", parameters: query,
-    responses: { ...errorResponses([400, 401, 403, 500], { 403: ["FORBIDDEN", "Insufficient permissions."] }), 200: response("Own paginated assignments", successSchema(ref("AssignmentList"))) },
+    description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE, and a missing membership returns 403 RIDER_PROVIDER_MEMBERSHIP_REQUIRED. Filters by authenticated Rider ID at the database boundary. riderId query overrides are rejected. Includes recipient contact/address and exact COD strings for assigned deliveries only; all statuses including completed tasks. Newest assignedAt then id first.", parameters: query,
+    responses: { ...riderErrorResponses([400, 401, 500]), 200: response("Own paginated assignments", successSchema(ref("AssignmentList"))) },
   } },
   "/api/rider/assignments/{id}": { get: { ...rider, operationId: "riderAssignmentDetail", summary: "View my assignment (RIDER only)",
-    description: "Missing and other Riders' assignments both return 404. Includes current order status and oldest-first status history with safe actor identity fields.", parameters: idParameter,
-    responses: { ...errorResponses([400, 401, 403, 404, 500], { 403: ["FORBIDDEN", "Insufficient permissions."], 404: ["ASSIGNMENT_NOT_FOUND", "Assignment not found."] }), 200: response("Own assignment detail", successSchema(ref("RiderAssignmentDetail"))) },
+    description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE. Missing and other Riders' assignments both return 404. Includes current order status and oldest-first status history with safe actor identity fields.", parameters: idParameter,
+    responses: { ...riderErrorResponses([400, 401, 404, 500], { 404: ["ASSIGNMENT_NOT_FOUND", "Assignment not found."] }), 200: response("Own assignment detail", successSchema(ref("RiderAssignmentDetail"))) },
   } },
   "/api/rider/assignments/{id}/status": { patch: { ...rider, operationId: "riderDeliveryStatus", summary: "Update my delivery status (RIDER only)",
-    description: "Only PICKED_UP → IN_TRANSIT; IN_TRANSIT → OUT_FOR_DELIVERY or FAILED; OUT_FOR_DELIVERY → DELIVERED or FAILED. DELIVERED, FAILED, CANCELLED are terminal. FAILED requires a meaningful note of 3–1000 trimmed characters. Ownership lookup, conditional status update, status-event insertion and response read run atomically in a Serializable transaction. Actor is the authenticated Rider. Invalid transitions and concurrent updates return 409; refresh before retrying. No automatic retry.",
+    description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE. Only PICKED_UP → IN_TRANSIT; IN_TRANSIT → OUT_FOR_DELIVERY or FAILED; OUT_FOR_DELIVERY → DELIVERED or FAILED. DELIVERED, FAILED, CANCELLED are terminal. FAILED requires a meaningful note of 3–1000 trimmed characters. Ownership lookup, conditional status update, status-event insertion and response read run atomically in a Serializable transaction. Actor is the authenticated Rider. Invalid transitions and concurrent updates return 409; refresh before retrying. No automatic retry.",
     parameters: idParameter, requestBody: requestBody(ref("DeliveryStatusInput"), { status: "IN_TRANSIT" }),
-    responses: { ...errors, 409: response("STATUS_TRANSITION_NOT_ALLOWED: invalid transition or concurrent status update", ref("Error")), 200: response("Updated own assignment, full history and previousStatus", successSchema(ref("UpdatedRiderAssignment"))) },
+    responses: { ...riderErrorResponses([400, 401, 404, 500], { 404: ["ASSIGNMENT_NOT_FOUND", "Assignment not found."] }), 409: response("STATUS_TRANSITION_NOT_ALLOWED: invalid transition or concurrent status update", ref("Error")), 200: response("Updated own assignment, full history and previousStatus", successSchema(ref("UpdatedRiderAssignment"))) },
   } },
 };

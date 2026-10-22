@@ -51,6 +51,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'get /api/operator/riders/overview', 'get /api/operator/riders/invitations', 'get /api/operator/riders/{riderId}',
     'get /api/operator/warehouse/overview', 'get /api/operator/warehouse/parcels',
     'get /api/rider/assignments', 'get /api/rider/assignments/{id}', 'patch /api/rider/assignments/{id}/status',
+    'get /api/rider/profile', 'patch /api/rider/profile',
     'get /api/sme/dashboard',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
@@ -82,6 +83,28 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   assert.ok(spec.paths['/api/auth/login'].post.responses['403']);
   for (const [path, schema] of [['/api/auth/verify-email', verifyEmailSchema], ['/api/auth/reset-password', resetPasswordSchema]]) {
     assert.equal(schema.safeParse(spec.paths[path].post.requestBody.content['application/json'].example).success, true);
+  }
+  assert.ok(spec.components.schemas.RiderProfileResult);
+  assert.ok(spec.components.schemas.RiderProfileUpdateInput);
+  for (const name of ['Riders', 'Rider Profile', 'Rider Deliveries']) {
+    assert.ok(spec.tags.find(tag => tag.name === name).description, `${name} tag needs a description`);
+  }
+  for (const [method, path] of [['get', '/api/rider/assignments'], ['get', '/api/rider/assignments/{id}'], ['patch', '/api/rider/assignments/{id}/status']]) {
+    const forbidden = spec.paths[path][method].responses['403'];
+    assert.match(forbidden.description, /RIDER_PROFILE_INCOMPLETE/);
+    assert.match(forbidden.description, /RIDER_PROVIDER_MEMBERSHIP_REQUIRED/);
+    const codes = Object.values(forbidden.content['application/json'].examples).map(example => example.value.error.code);
+    assert.ok(codes.includes('FORBIDDEN'));
+    assert.ok(codes.includes('RIDER_PROVIDER_MEMBERSHIP_REQUIRED'));
+    assert.ok(codes.includes('RIDER_PROFILE_INCOMPLETE'));
+  }
+  for (const method of ['get', 'patch']) {
+    const examples = spec.paths['/api/rider/profile'][method].responses['200'].content['application/json'].examples;
+    assert.ok(examples.complete);
+    assert.equal(examples.incomplete.value.data.profileComplete, false);
+    assert.deepEqual(examples.incomplete.value.data.missingFields, ['vehicleType']);
+    assert.equal(examples.providerSetup.value.data.provider, null);
+    assert.deepEqual(examples.providerSetup.value.data.missingFields, ['provider']);
   }
   assert.doesNotMatch(JSON.stringify(spec), /postgres(?:ql)?:\/\/|passwordHash|password_hash|access_hash|refresh_hash/);
 });

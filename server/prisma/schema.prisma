@@ -30,9 +30,35 @@ model Profile {
   statusEvents OrderStatusEvent[]
   riderAssignments RiderAssignment[] @relation("AssignmentRider")
   assignedParcels RiderAssignment[] @relation("AssignmentOperator")
+  riderProfile RiderProfile?
 
   @@index([providerId])
   @@map("profiles")
+}
+
+// Rider-specific onboarding data. Identity and provider membership remain on Profile.
+// completedAt is server-managed and derived from persisted required fields.
+enum VehicleType {
+  MOTORCYCLE
+  BICYCLE
+  CAR
+  VAN
+  ON_FOOT
+}
+
+model RiderProfile {
+  id                 String      @id @default(uuid()) @db.Uuid
+  profileId          String      @unique @map("profile_id") @db.Uuid
+  profile            Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  vehicleType        VehicleType? @map("vehicle_type")
+  vehiclePlateNumber String?     @map("vehicle_plate_number") @db.VarChar(32)
+  vehicleModel       String?     @map("vehicle_model") @db.VarChar(120)
+  vehicleColor       String?     @map("vehicle_color") @db.VarChar(64)
+  completedAt        DateTime?   @map("completed_at") @db.Timestamptz(3)
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("rider_profiles")
 }
 
 model Account {
