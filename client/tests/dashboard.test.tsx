@@ -45,6 +45,7 @@ const payload = {
       CREATED: 2,
       PICKED_UP: 3,
       IN_TRANSIT: 4,
+      OUT_FOR_DELIVERY: 5,
       DELIVERED: 6,
       FAILED: 1,
       CANCELLED: 3,

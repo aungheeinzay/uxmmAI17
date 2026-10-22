@@ -227,7 +227,7 @@ const orderListParams = z.object({
   page: z.coerce.number().int().min(1).max(100000).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   search: z.string().trim().min(1).max(120).optional(),
-  status: z.enum(["CREATED", "PICKED_UP", "IN_TRANSIT", "DELIVERED", "FAILED", "CANCELLED"]).optional(),
+  status: z.enum(["CREATED", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED", "CANCELLED"]).optional(),
   tab: z.enum(["all", "needs_pickup", "exceptions"]).optional(),
 }).strict();
 

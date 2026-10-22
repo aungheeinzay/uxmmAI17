@@ -167,10 +167,6 @@ export function MonthlyCostSummary({
           </p>
         </CardFooter>
       </Card>
-
-      <p className="text-[11px] italic text-muted-foreground/70">
-        Totals are the cash-on-delivery value of parcels created each month. Delivery fees are not modelled yet.
-      </p>
     </div>
   );
 }

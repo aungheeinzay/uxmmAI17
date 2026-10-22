@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useInviteRider } from "../hooks/use-invite-rider";
 import { inviteRiderSchema, type InviteRiderValues } from "../schemas/rider.schema";
-import { useInviteRider } from "../hooks/use-invite-rider";
 export function InviteRiderForm({ onInvited }: { onInvited?: () => void } = {}) {
  const invitation = useInviteRider();
  const { register, handleSubmit, reset, formState: { errors } } = useForm<InviteRiderValues>({ resolver: zodResolver(inviteRiderSchema), defaultValues: { email: "", fullName: "" } });

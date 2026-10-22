@@ -18,7 +18,6 @@ const createExample = {
   senderName: "Example Shop",
   deliveryInstructions: "Please call before delivery.",
   operatorId: "550e8400-e29b-41d4-a716-446655440000",
-  operatorId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
 const createdExample = {
@@ -29,7 +28,6 @@ const createdExample = {
   id: "660e8400-e29b-41d4-a716-446655440000",
   orderCode: "POA1B2C3D4E5F678",
   ownerId: "550e8400-e29b-41d4-a716-446655440000",
-  operatorId: createExample.operatorId,
   operatorId: createExample.operatorId,
   recipientName: createExample.recipientName,
   phoneNumber: createExample.phoneNumber,
@@ -48,6 +46,30 @@ const createdExample = {
     identifier: "a1b2c3d4e5f678901234567890abcdefa1b2c3d4e5f678901234567890abcdef",
     imageDataUrl: "data:image/png;base64,<png-base64>",
   },
+};
+
+const listedExample = {
+  id: createdExample.id,
+  orderCode: createdExample.orderCode,
+  recipientName: createdExample.recipientName,
+  phoneNumber: createdExample.phoneNumber,
+  township: createdExample.township,
+  deliveryAddress: createdExample.deliveryAddress,
+  parcelWeight: createdExample.parcelWeight,
+  parcelWeightUnit: "kg",
+  codAmount: createdExample.codAmount,
+  currency: "MMK",
+  senderName: createdExample.senderName,
+  status: "CREATED",
+  createdAt: createdExample.createdAt,
+  operatorId: createExample.operatorId,
+  operator: { id: createExample.operatorId, fullName: "Test Operator" },
+};
+
+const listExample = {
+  orders: [listedExample],
+  pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+  tabCounts: { all: 1, needsPickup: 1, exceptions: 0 },
 };
 
 const orderQrExample = {
@@ -254,7 +276,6 @@ export const orderSchemas = {
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       operatorId: { type: "string", format: "uuid", nullable: true },
-      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -268,14 +289,7 @@ export const orderSchemas = {
       status: { type: "string", enum: statusValues },
       createdAt: { type: "string", format: "date-time" },
       operator: {
-      operator: {
         type: "object",
-        required: ["id", "fullName"],
-        properties: {
-          id: { type: "string", format: "uuid" },
-          fullName: { type: "string", nullable: true },
-        },
-        nullable: true,
         required: ["id", "fullName"],
         properties: {
           id: { type: "string", format: "uuid" },
@@ -323,7 +337,6 @@ export const orderSchemas = {
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
       operatorId: { type: "string", format: "uuid" },
-      operatorId: { type: "string", format: "uuid" },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -354,7 +367,6 @@ export const orderSchemas = {
       orderCode: { type: "string" },
       ownerId: { type: "string", format: "uuid" },
       operatorId: { type: "string", format: "uuid", nullable: true },
-      operatorId: { type: "string", format: "uuid", nullable: true },
       recipientName: { type: "string" },
       phoneNumber: { type: "string" },
       township: { type: "string" },
@@ -380,18 +392,13 @@ export const orderSchemas = {
         },
       },
       operator: {
-      operator: {
         type: "object",
-        required: ["id", "fullName", "phone"],
         required: ["id", "fullName", "phone"],
         properties: {
           id: { type: "string", format: "uuid" },
           fullName: { type: "string", nullable: true },
           phone: { type: "string", nullable: true },
-          fullName: { type: "string", nullable: true },
-          phone: { type: "string", nullable: true },
         },
-        nullable: true,
         nullable: true,
       },
     },
@@ -399,37 +406,9 @@ export const orderSchemas = {
   UpdatedOrderDetail: updatedOrderDetailSchema,
 };
 
-const listedExample = {
-  id: createdExample.id,
-  orderCode: createdExample.orderCode,
-  recipientName: createdExample.recipientName,
-  phoneNumber: createdExample.phoneNumber,
-  township: createdExample.township,
-  deliveryAddress: createdExample.deliveryAddress,
-  parcelWeight: createdExample.parcelWeight,
-  parcelWeightUnit: "kg",
-  codAmount: createdExample.codAmount,
-  currency: "MMK",
-  senderName: createdExample.senderName,
-  status: "CREATED",
-  createdAt: createdExample.createdAt,
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator" },
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator" },
-};
-
-const listExample = {
-  orders: [listedExample],
-  pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-  tabCounts: { all: 1, needsPickup: 1, exceptions: 0 },
-};
-
 const orderDetailExample = {
   ...createdExample,
   owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
   operatorId: createExample.operatorId,
   operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
 };

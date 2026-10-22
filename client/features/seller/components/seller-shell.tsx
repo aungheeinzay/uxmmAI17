@@ -38,7 +38,7 @@ export function SellerShell({ children }: { children: React.ReactNode }) {
           showDemoBadge={page.demoBadge}
           onOpenNavigation={() => setOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto bg-background px-4 py-6 sm:px-6 lg:px-8">
+        <main className="flex-1 overflow-y-auto bg-[#F8FAFC] px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>

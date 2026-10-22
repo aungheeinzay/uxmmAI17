@@ -30,7 +30,7 @@ export function SellerHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-border bg-surface px-4 sm:px-6",
+        "sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-4 sm:px-6",
         className,
       )}
     >
@@ -46,14 +46,14 @@ export function SellerHeader({
             <Menu aria-hidden="true" />
           </Button>
         ) : null}
-        <span className="truncate text-muted-foreground">{workspaceName}</span>
+        <span className="truncate text-[#6B7280]">{workspaceName}</span>
         <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-[#9CA3AF]" />
-        <span className="truncate font-semibold text-brand-dark">{currentPageName}</span>
+        <span className="truncate font-semibold text-[#1B2F5A]">{currentPageName}</span>
       </div>
 
       <div className="flex items-center gap-4">
         {showDemoBadge ? (
-          <span className="hidden rounded-full border border-[#C7D2FE] bg-brand-tint px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-brand sm:inline-flex">
+          <span className="hidden rounded-full border border-[#C7D2FE] bg-[#EEF2FF] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#3D51A3] sm:inline-flex">
             Demo data
           </span>
         ) : null}
@@ -62,7 +62,7 @@ export function SellerHeader({
           disabled
           aria-label="Notifications"
           title="No new notifications"
-          className="relative flex size-9 items-center justify-center rounded-full text-neutral-strong transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70"
+          className="relative flex size-9 items-center justify-center rounded-full text-[#4B5563] transition-colors hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-70"
         >
           <Bell aria-hidden="true" className="size-5" />
           <span aria-hidden="true" className="absolute right-1.5 top-1.5 size-2 rounded-full bg-amber-500" />
@@ -70,7 +70,7 @@ export function SellerHeader({
         <span
           role="img"
           aria-label={displayName}
-          className="flex size-9 items-center justify-center rounded-full bg-brand-tint text-body-md font-bold text-brand"
+          className="flex size-9 items-center justify-center rounded-full bg-[#E8EDF7] text-body-md font-bold text-[#1B2F5A]"
         >
           {initialsFor(user?.fullName ?? null, "SO")}
         </span>

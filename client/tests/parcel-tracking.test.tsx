@@ -95,7 +95,7 @@ describe("Public tracking", () => {
     expect(screen.getByText("Booked")).toBeTruthy();
     expect(screen.getByText("Picked Up")).toBeTruthy();
     expect(screen.getByText("In Transit to Destination")).toBeTruthy();
-    expect(screen.getByText("Delivered")).toBeTruthy();
+    expect(screen.getByText("Out for Delivery")).toBeTruthy();
     expect(screen.getAllByText("Completed")).toHaveLength(3);
   });
 

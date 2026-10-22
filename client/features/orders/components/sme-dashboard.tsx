@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
@@ -75,7 +75,18 @@ export function SmeDashboard() {
                   failed={dashboard.statusCounts.FAILED + dashboard.statusCounts.CANCELLED}
                 />
 
-                <RecentShipmentsCallout onViewRecentShipments={() => setView("recent")} />
+<section className="rounded-xl border border-[#FED7AA] bg-[#FFF7ED] p-4">
+      <div className="flex items-start gap-3">
+        <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 text-[#F97316]" />
+        <div className="space-y-1">
+          <p className="text-[13px] font-semibold text-[#C2410C]">Damaged parcel box policy</p>
+          <p className="text-[12px] leading-relaxed text-[#9A3412]">
+            If a recipient reports a damaged box upon delivery, ensure photo evidence is captured before opening. 
+            Claims must be filed with the delivery operator within 24 hours.
+          </p>
+        </div>
+      </div>
+    </section>
 
                 <MonthlyCostSummary
                   entries={dashboard.monthlyCosts.map((entry) => ({ month: entry.month, cost: Number(entry.cost) }))}

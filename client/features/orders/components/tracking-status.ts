@@ -6,6 +6,7 @@ export const forwardingStatuses: OrderStatus[] = [
   "CREATED",
   "PICKED_UP",
   "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
   "DELIVERED",
 ];
 
@@ -15,6 +16,7 @@ export const shipmentStatusBadges: Record<OrderStatus, { label: string; tone: Sh
   CREATED: { label: "Booked", tone: "info" },
   PICKED_UP: { label: "Picked Up", tone: "info" },
   IN_TRANSIT: { label: "In Transit", tone: "info" },
+  OUT_FOR_DELIVERY: { label: "Out for Delivery", tone: "info" },
   DELIVERED: { label: "Delivered", tone: "success" },
   FAILED: { label: "Failed", tone: "danger" },
   CANCELLED: { label: "Cancelled", tone: "neutral" },
@@ -29,6 +31,11 @@ const shipmentStepPresentation: Record<
   IN_TRANSIT: {
     title: "In Transit to Destination",
     subtitle: "Moving to the delivery hub",
+    icon: "transit",
+  },
+  OUT_FOR_DELIVERY: {
+    title: "Out for Delivery",
+    subtitle: "Rider is on the way to the recipient",
     icon: "transit",
   },
   DELIVERED: {

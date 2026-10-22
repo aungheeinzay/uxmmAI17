@@ -135,35 +135,6 @@ export function ParcelDetailsContent({
               <p className="mt-1 text-[13px] text-[#6B7280]">{deliveryPhone}</p>
             </div>
           </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              onClick={onUpdateStatus}
-              className="h-auto gap-2 rounded-xl bg-[#3D51A3] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#32438A]"
-            >
-              <CheckCircle2 aria-hidden="true" className="size-4" />
-              Update status
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onAssignRider}
-              className="h-auto gap-2 rounded-xl border-[#E5E7EB] bg-white px-5 py-2.5 text-[14px] font-semibold text-[#111827] hover:bg-gray-50"
-            >
-              <User aria-hidden="true" className="size-4" />
-              Assign rider
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onMessage}
-              className="h-auto gap-2 rounded-xl border-[#E5E7EB] bg-white px-5 py-2.5 text-[14px] font-semibold text-[#111827] hover:bg-gray-50"
-            >
-              <MessageSquare aria-hidden="true" className="size-4" />
-              Message
-            </Button>
-          </div>
         </section>
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
@@ -265,6 +236,15 @@ export function ParcelDetailsContent({
               Preview public tracking
             </Link>
           </Button>
+
+          <Button
+              type="button"
+              onClick={onUpdateStatus}
+              className="h-auto w-full mt-2 gap-2 rounded-xl bg-[#3D51A3] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#32438A]"
+            >
+              <CheckCircle2 aria-hidden="true" className="size-4" />
+              Print Receipt
+            </Button>
         </section>
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm">
