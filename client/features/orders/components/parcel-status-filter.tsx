@@ -33,7 +33,7 @@ export function ParcelStatusFilter({ value, onChange }: ParcelStatusFilterProps)
           const next = event.target.value;
           onChange(next === "" ? null : (next as OrderStatus));
         }}
-        className="h-10 w-full appearance-none rounded-lg border border-input bg-background py-2 pr-9 pl-3 text-body-md text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50"
+        className="h-10 w-full appearance-none rounded-lg border border-input bg-white py-2 pr-9 pl-3 text-body-md text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50"
       >
         <option value="">All statuses</option>
         {filterableStatuses.map((status) => (

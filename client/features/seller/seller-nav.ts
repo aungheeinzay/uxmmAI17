@@ -22,7 +22,7 @@ export const sellerOperationsNav: SellerNavItem[] = [
     paths: ["/seller", "/seller/all-parcels", "/seller/order/new"],
     live: true,
   },
-  { label: "Dispatch", icon: GitFork, paths: [] },
+  // { label: "Dispatch", icon: GitFork, paths: [] },
   { label: "Tracking", icon: Search, href: "/seller/tracking", paths: ["/seller/tracking"] },
   { label: "Reports", icon: CreditCard, paths: [] },
 ];

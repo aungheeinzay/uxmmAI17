@@ -51,7 +51,7 @@ export function ParcelMetricGrid({
         return (
           <Card
             key={metric.label}
-            className="h-36 justify-between gap-0 rounded-[12px] border border-[#EEF2F7] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_20px_rgba(27,47,90,0.06)] ring-0"
+            className="h-36 justify-between gap-0 rounded-[12px] border border-[#d3d9e0] bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_20px_rgba(27,47,90,0.06)] ring-0"
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-[13px] font-medium text-[#6B7280]">{metric.label}</p>

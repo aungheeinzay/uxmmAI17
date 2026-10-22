@@ -30,9 +30,9 @@ export function ParcelOverviewHeader({
   actions,
   className,
 }: ParcelOverviewHeaderProps) {
-  const greeting = "Good morning";
+  const greeting = "Welcome again";
 
-  const firstName = userName?.trim().split(/\s+/)[0] || "Thiri";
+  const firstName = userName?.trim().split(/\s+/)[0] || "Shop Owner";
 
   const views: { id: ParcelOverviewView; label: string }[] = [
     { id: "overview", label: "Parcel view" },
