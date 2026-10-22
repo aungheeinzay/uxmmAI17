@@ -44,11 +44,24 @@ const pageSchema = z.coerce.number().int().min(1).default(1);
 const pageSizeSchema = z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE);
 const searchSchema = z.string().trim().min(1).max(120).optional();
 
+// All statuses come from the generated Prisma enum so the API and schema cannot drift.
+const listedStatuses = Object.values(OrderStatus) as [OrderStatus, ...OrderStatus[]];
+
+// Saved parcel views shown as tabs on the parcel list. Each view maps to a set of statuses.
+export const ORDER_TABS = {
+  all: [],
+  needs_pickup: ["CREATED"],
+  exceptions: ["FAILED", "CANCELLED"],
+} as const satisfies Record<string, readonly OrderStatus[]>;
+
+export type OrderTab = keyof typeof ORDER_TABS;
+
 export const listOrdersQuerySchema = z.object({
   page: pageSchema,
   pageSize: pageSizeSchema,
   search: searchSchema,
-  status: z.enum(["CREATED"]).optional(),
+  status: z.enum(listedStatuses).optional(),
+  tab: z.enum(Object.keys(ORDER_TABS) as [OrderTab, ...OrderTab[]]).default("all"),
 }).strict();
 
 export const createOrderSchema = z.object({
@@ -67,7 +80,9 @@ export const createOrderSchema = z.object({
   codAmount: codAmountSchema,
   senderName: requiredText(120),
   deliveryInstructions: z.string().trim().max(1000).optional().nullable(),
-  operatorId: z.string().uuid(),
+  // Existing callers may provide a specific Operator, but the server can resolve a
+  // provider-scoped Operator when the SME UI does not have an Operator directory.
+  operatorId: z.string().uuid().optional(),
   destinationCity: citySchema,
   deliveryProviderId: z.string().uuid(),
 }).strict();

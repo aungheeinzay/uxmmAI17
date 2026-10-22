@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest, type NextResponse } from "next/server";
 
 vi.mock("server-only", () => ({}));
-import { cookieNames, loginSession, logoutSession, restoreSession } from "@/features/auth/server/session";
+import { cookieNames, loginSession, logoutSession, orderStatusSession, ordersSession, restoreSession } from "@/features/auth/server/session";
 
 const require = createRequire(import.meta.url);
 type Account = { id: string; email: string; passwordHash: string; emailVerifiedAt: Date | null; profile: { id: string; fullName: null; phone: null; role: string } };
@@ -18,6 +18,7 @@ const resetEmails = new Map<string, string>();
 let server: Server;
 let backend: string;
 let rotations = 0;
+const capturedListFilters: { statuses: string[] }[] = [];
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 
 beforeAll(async () => {
@@ -63,6 +64,31 @@ beforeAll(async () => {
     return true;
   };
   users.findProfile = async (id: string) => [...accounts.values()].find((a) => a.id === id)?.profile ?? null;
+  const orders = require("../../server/dist/modules/orders/order.repository.js");
+  orders.listOrdersWithCount = async (filters: { statuses: string[] }) => {
+    capturedListFilters.push(filters);
+    return [
+      [],
+      0,
+      [
+        { status: "CREATED", _count: { _all: 5 } },
+        { status: "DELIVERED", _count: { _all: 10 } },
+        { status: "FAILED", _count: { _all: 2 } },
+      ],
+    ];
+  };
+  orders.findStatusByIdentifier = async (_ownerId: string, identifier: { kind: string; value: string }) => {
+    const code = identifier.kind === "orderCode" ? identifier.value : identifier.value.toUpperCase();
+    return code === "POAABBCCDDEEFF0011" ? {
+      id: "3d0f2b7c-8a51-4c62-9f10-5b6c7d8e9f00",
+      orderCode: code,
+      status: "IN_TRANSIT",
+      createdAt: new Date("2026-10-20T00:00:00.000Z"),
+      statusEvents: [
+        { status: "PICKED_UP", previousStatus: "CREATED", note: null, createdAt: new Date("2026-10-20T02:15:00.000Z") },
+      ],
+    } : null;
+  };
   const { app } = require("../../server/dist/app.js");
   const express = require("../../server/node_modules/express");
   const wrapper = express();
@@ -89,6 +115,16 @@ function request(path: string, cookies = "", body: unknown = {}, origin = "http:
   });
 }
 function jar(response: NextResponse) { return response.cookies.getAll().map((c) => `${c.name}=${c.value}`).join("; "); }
+function getRequest(search: string, cookies = "", origin?: string) {
+  const headers: Record<string, string> = { "Sec-Fetch-Site": "same-origin", Cookie: cookies };
+  if (origin) headers.Origin = origin;
+  return new NextRequest(`http://localhost:3000/api/session/orders${search}`, { method: "GET", headers });
+}
+function statusRequest(id: string, cookies = "", origin?: string) {
+  const headers: Record<string, string> = { "Sec-Fetch-Site": "same-origin", Cookie: cookies };
+  if (origin) headers.Origin = origin;
+  return new NextRequest(`http://localhost:3000/api/session/orders/${id}/status`, { method: "GET", headers });
+}
 async function login(email = "verified@example.com", password = "correct-password") {
   return loginSession(request("login", "", { email, password }));
 }
@@ -175,6 +211,40 @@ describe("BFF against the real Express controllers and auth services (in-memory 
     const operator = await login("operator@example.com");
     expect((await fetch(`${backend}/operator-only`, { headers: { Authorization: `Bearer ${sme.cookies.get(cookieNames.access)!.value}` } })).status).toBe(403);
     expect((await fetch(`${backend}/operator-only`, { headers: { Authorization: `Bearer ${operator.cookies.get(cookieNames.access)!.value}` } })).status).toBe(200);
+  });
+
+  it("proxies the parcel list for an SME with tab counts and rejects other origins and roles", async () => {
+    const sme = await login();
+    const list = await ordersSession(getRequest("?tab=needs_pickup", jar(sme)));
+    expect(list.status).toBe(200);
+    const payload = await list.json();
+    expect(payload.data.tabCounts).toEqual({ all: 17, needsPickup: 5, exceptions: 2 });
+    expect(Array.isArray(payload.data.orders)).toBe(true);
+    expect(capturedListFilters.at(-1)?.statuses).toEqual(["CREATED"]);
+    const filtered = await ordersSession(getRequest("?status=DELIVERED", jar(sme)));
+    expect(filtered.status).toBe(200);
+    expect(capturedListFilters.at(-1)?.statuses).toEqual(["DELIVERED"]);
+    expect((await ordersSession(getRequest("?status=PENDING", jar(sme)))).status).toBe(400);
+    expect((await ordersSession(getRequest("?tab=all", jar(sme), "https://evil.example"))).status).toBe(403);
+    expect((await ordersSession(getRequest("?tab=trash", jar(sme)))).status).toBe(400);
+    const operator = await login("operator@example.com");
+    expect((await ordersSession(getRequest("?tab=all", jar(operator)))).status).toBe(403);
+  });
+
+  it("proxies the parcel status view for an SME and rejects invalid identifiers, other origins and roles", async () => {
+    const sme = await login();
+    const found = await orderStatusSession(statusRequest("poaabbccddeeff0011", jar(sme)), "poaabbccddeeff0011");
+    expect(found.status).toBe(200);
+    const payload = await found.json();
+    expect(payload.data.orderCode).toBe("POAABBCCDDEEFF0011");
+    expect(payload.data.status).toBe("IN_TRANSIT");
+    expect(payload.data.timeline.length).toBeGreaterThan(0);
+    expect(JSON.stringify(payload)).not.toMatch(/recipientName|phoneNumber|deliveryAddress|codAmount|township/);
+    expect((await orderStatusSession(statusRequest("not-a-code", jar(sme)), "not-a-code")).status).toBe(400);
+    expect((await orderStatusSession(statusRequest("POFFFFFFFFFFFFFFFF", jar(sme)), "POFFFFFFFFFFFFFFFF")).status).toBe(404);
+    expect((await orderStatusSession(statusRequest("POAABBCCDDEEFF0011", jar(sme), "https://evil.example"), "POAABBCCDDEEFF0011")).status).toBe(403);
+    const operator = await login("operator@example.com");
+    expect((await orderStatusSession(statusRequest("POAABBCCDDEEFF0011", jar(operator)), "POAABBCCDDEEFF0011")).status).toBe(403);
   });
 
   it("uses Secure cookies in production", async () => {

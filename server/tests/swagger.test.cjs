@@ -44,7 +44,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',
     'post /api/riders/invitations', 'post /api/riders/activate',
     'get /api/orders', 'post /api/orders', 'get /api/orders/{id}',
-    'get /api/orders/{id}/qr', 'patch /api/orders/{id}/status',
+    'get /api/orders/{id}/qr', 'get /api/orders/{id}/status', 'patch /api/orders/{id}/status',
     'get /api/operator/orders', 'get /api/operator/orders/{id}',
     'patch /api/operator/orders/{id}/receive',
     'get /api/operator/riders', 'get /api/operator/assignments', 'post /api/operator/assignments',
@@ -56,6 +56,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'post /api/rider/incidents', 'get /api/rider/incidents', 'get /api/rider/incidents/{id}',
     'get /api/operator/incidents', 'get /api/operator/incidents/{id}', 'patch /api/operator/incidents/{id}/review',
     'get /api/sme/dashboard',
+    'get /api/delivery/services', 'get /api/delivery/cities',
   ].sort());
   assert.deepEqual(spec.components.securitySchemes.bearerAuth.type, 'http');
   assert.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
@@ -99,6 +100,10 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   for (const path of ['/api/operator/riders/invitations', '/api/operator/riders/{riderId}']) {
     assert.ok(spec.paths[path].get.parameters.some(parameter => parameter.name === 'pageSize'), `${path} docs need pageSize`);
   }
+  const orderList = spec.paths['/api/orders'].get;
+  assert.deepEqual(orderList.parameters.find(p => p.name === 'tab').schema.enum, ['all', 'needs_pickup', 'exceptions']);
+  assert.deepEqual(spec.components.schemas.OrderList.required, ['orders', 'pagination', 'tabCounts']);
+  assert.deepEqual(orderList.responses['200'].content['application/json'].example.data.tabCounts, { all: 1, needsPickup: 1, exceptions: 0 });
   for (const [path, schema] of [['/api/auth/verify-email', verifyEmailSchema], ['/api/auth/reset-password', resetPasswordSchema]]) {
     assert.equal(schema.safeParse(spec.paths[path].post.requestBody.content['application/json'].example).success, true);
   }

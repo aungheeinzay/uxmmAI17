@@ -7,6 +7,7 @@ import { env } from "./env";
 import { authPaths, authSchemas } from "../modules/auth/auth.openapi";
 import { userPaths, userSchemas } from "../modules/users/user.openapi";
 import { riderPaths, riderSchemas } from "../modules/riders/rider.openapi";
+import { deliveryPaths, deliverySchemas } from "../modules/delivery/delivery.openapi";
 import { orderPaths, orderSchemas } from "../modules/orders/order.openapi";
 import { operatorPaths, operatorSchemas } from "../modules/operator/operator.openapi";
 import { assignmentPaths, assignmentSchemas } from "../modules/assignments/assignment.openapi";
@@ -31,14 +32,15 @@ export const openApiDocument = {
     { name: "Rider Deliveries", description: "Authenticated Rider assignments and status transitions. Every delivery operation requires a completed Rider profile and delivery-provider membership; onboarding endpoints remain available while incomplete." },
     { name: "Rider Incidents", description: "Authenticated Rider incident reporting for damaged, broken or lost parcels. Only the assigned Rider may report; reporting never changes the order status." },
     { name: "Operator Incidents", description: "Provider-scoped incident review for Operators. Incidents are visible only within the authenticated Operator's delivery provider." },
+    { name: "Delivery", description: "Authenticated SME delivery-provider and city catalog." },
     { name: "Health" },
   ],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas, ...incidentSchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas, ...incidentSchemas, ...deliverySchemas },
   },
   paths: {
-    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
+    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...deliveryPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
     ...providerPaths,
     ...riderManagementPaths,
     ...riderProfilePaths,

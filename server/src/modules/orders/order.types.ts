@@ -52,7 +52,7 @@ export type ListedOrder = OrderPricing & {
   operator: { id: string; fullName: string | null } | null;
 };
 
-// Full parcel detail for one order the caller owns, including owner and Operator.
+// Full parcel detail for one order the caller owns, including owner and delivery service.
 export type OrderDetail = OrderPricing & {
   id: string;
   orderCode: string;
@@ -86,6 +86,27 @@ export type OrderListResult = {
     total: number;
     totalPages: number;
   };
+  // Per-tab totals for the parcel list views, independent of the active tab, search and page.
+  tabCounts: {
+    all: number;
+    needsPickup: number;
+    exceptions: number;
+  };
+};
+
+// Status-only tracking view. Contact details, financials and coordinates are deliberately excluded.
+export type TrackingTimelineEntry = {
+  status: OrderStatus;
+  previousStatus: OrderStatus | null;
+  note: string | null;
+  createdAt: Date;
+};
+
+export type OrderStatusView = {
+  id: string;
+  orderCode: string;
+  status: OrderStatus;
+  timeline: TrackingTimelineEntry[];
 };
 
 export type DashboardPeriod = {
@@ -123,9 +144,21 @@ export type DashboardRecentOrder = OrderPricing & {
   deliveryRider: null;
 };
 
+// Monthly delivery-fee totals for the SME's own parcels, grouped by creation month.
+export type DashboardMonthlyCost = {
+  /** Calendar month in UTC, for example "2026-10". */
+  month: string;
+  /** Total server-snapshotted delivery fees in MMK. */
+  cost: string;
+  currency: string;
+  /** Number of parcels created in the month. */
+  parcels: number;
+};
+
 export type OrderDashboard = {
   totalParcels: number;
   statusCounts: Record<OrderStatus, number>;
   deliveryOverview: { thisWeek: DashboardPeriod; thisMonth: DashboardPeriod };
+  monthlyCosts: DashboardMonthlyCost[];
   recentOrders: DashboardRecentOrder[];
 };

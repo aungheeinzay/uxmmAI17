@@ -7,8 +7,7 @@ import { pricingSelect } from "../providers/order-pricing";
 // One projection shared by the detail read and the status-update read so both
 // serialize to exactly the same shape.
 const orderDetailSelect = {
-  destinationCity: true, deliveryProviderId: true, deliveryFee: true,
-  deliveryProvider: { select: { id: true, name: true } },
+  ...pricingSelect,
   id: true,
   orderCode: true,
   ownerId: true,
@@ -49,15 +48,15 @@ export type OrderCreateRecord = {
 export type OrderListFilters = {
   ownerId: string;
   search?: string;
-  status?: "CREATED";
+  statuses?: readonly OrderStatus[];
   skip: number;
   take: number;
 };
 
 // Shared by list and count so both always use identical filters.
-function buildWhere(filters: Pick<OrderListFilters, "ownerId" | "search" | "status">): Prisma.ParcelOrderWhereInput {
+function buildWhere(filters: Pick<OrderListFilters, "ownerId" | "search" | "statuses">): Prisma.ParcelOrderWhereInput {
   const where: Prisma.ParcelOrderWhereInput = { ownerId: filters.ownerId };
-  if (filters.status) where.status = filters.status;
+  if (filters.statuses && filters.statuses.length > 0) where.status = { in: [...filters.statuses] };
   if (filters.search) {
     where.OR = [
       { orderCode: { contains: filters.search, mode: "insensitive" } },
@@ -74,8 +73,7 @@ export function listOrders(filters: OrderListFilters) {
     skip: filters.skip,
     take: filters.take,
     select: {
-      destinationCity: true, deliveryProviderId: true, deliveryFee: true,
-      deliveryProvider: { select: { id: true, name: true } },
+      ...pricingSelect,
       id: true,
       orderCode: true,
       recipientName: true,
@@ -94,8 +92,40 @@ export function listOrders(filters: OrderListFilters) {
   });
 }
 
-export function countOrders(filters: Pick<OrderListFilters, "ownerId" | "search" | "status">) {
+export function countOrders(filters: Pick<OrderListFilters, "ownerId" | "search" | "statuses">) {
   return prisma.parcelOrder.count({ where: buildWhere(filters) });
+}
+
+// Owner-scoped status tally, ignoring search and page so the tab counts reflect the whole book of parcels.
+export function countOrdersByStatus(ownerId: string) {
+  return prisma.parcelOrder.groupBy({
+    by: ["status"],
+    where: { ownerId },
+    orderBy: { status: "asc" },
+    _count: { _all: true },
+  });
+}
+
+// One calendar month (UTC) used to group the SME's monthly totals.
+export type DashboardMonthRange = {
+  /** Calendar month in UTC, for example "2026-10". */
+  month: string;
+  startsAt: Date;
+  endsAt: Date;
+};
+
+// Monthly cash-on-delivery totals per month. Ownership is part of the WHERE clause, so a
+// parcel of another SME never contributes. Months without parcels report zero.
+export function getMonthlyDeliveryTotals(ownerId: string, monthRanges: readonly DashboardMonthRange[]) {
+  return prisma.$transaction(
+    monthRanges.map((range) =>
+      prisma.parcelOrder.aggregate({
+        where: { ownerId, createdAt: { gte: range.startsAt, lt: range.endsAt } },
+        _sum: { deliveryFee: true },
+        _count: { _all: true },
+      }),
+    ),
+  );
 }
 
 export function getDashboardData(ownerId: string, weekStart: Date, monthStart: Date, now: Date) {
@@ -144,11 +174,12 @@ export function getDashboardData(ownerId: string, weekStart: Date, monthStart: D
   ]);
 }
 
-// Runs the page query and the matching count in one transaction so both share a consistent snapshot.
+// Runs the page query, the matching count and the status tally in one transaction so all share a consistent snapshot.
 export function listOrdersWithCount(filters: OrderListFilters) {
   return prisma.$transaction([
     listOrders(filters),
     countOrders(filters),
+    countOrdersByStatus(filters.ownerId),
   ]);
 }
 
@@ -166,6 +197,24 @@ export function findOrderQrForOwner(ownerId: string, identifier: OrderIdentifier
   return prisma.parcelOrder.findFirst({
     where: { ownerId, ...matches },
     select: { id: true, orderCode: true, qrIdentifier: true },
+  });
+}
+
+// Status-only read scoped to the owner. Selects no recipient, address or financial data.
+export function findStatusByIdentifier(ownerId: string, identifier: OrderIdentifier) {
+  const matches = identifier.kind === "id" ? { id: identifier.value } : { orderCode: identifier.value };
+  return prisma.parcelOrder.findFirst({
+    where: { ownerId, ...matches },
+    select: {
+      id: true,
+      orderCode: true,
+      status: true,
+      createdAt: true,
+      statusEvents: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: { status: true, previousStatus: true, note: true, createdAt: true },
+      },
+    },
   });
 }
 
@@ -205,9 +254,17 @@ export function updateOrderStatus(data: OrderStatusUpdateRecord) {
   });
 }
 
-export function findOperator(id: string) {
+export function findOperator(id: string, providerId: string) {
   return prisma.profile.findFirst({
-    where: { id, role: "OPERATOR" },
+    where: { id, role: "OPERATOR", providerId },
+    select: { id: true },
+  });
+}
+
+export function findOperatorForProvider(providerId: string) {
+  return prisma.profile.findFirst({
+    where: { role: "OPERATOR", providerId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: { id: true },
   });
 }
@@ -220,10 +277,10 @@ export function createOrder(data: OrderCreateRecord, validatePrice: (price: { fe
     });
     const deliveryFee = validatePrice(price);
     return tx.parcelOrder.create({
-    data: {
-      destinationCity: data.destinationCity,
-      deliveryProviderId: data.deliveryProviderId,
-      deliveryFee,
+      data: {
+        destinationCity: data.destinationCity,
+        deliveryProviderId: data.deliveryProviderId,
+        deliveryFee,
       orderCode: data.orderCode,
       qrIdentifier: data.qrIdentifier,
       operatorId: data.operatorId,
@@ -236,8 +293,8 @@ export function createOrder(data: OrderCreateRecord, validatePrice: (price: { fe
       codAmount: new Prisma.Decimal(data.codAmount),
       senderName: data.senderName,
       deliveryInstructions: data.deliveryInstructions,
-    },
-    include: { deliveryProvider: { select: { id: true, name: true } } },
+      },
+      include: { deliveryProvider: { select: { id: true, name: true } } },
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
