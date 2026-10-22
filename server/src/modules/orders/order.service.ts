@@ -141,21 +141,20 @@ export async function getOrder(ownerId: string, identifier: OrderIdentifier): Pr
   return serializeDetail(order);
 }
 
-// Explicit delivery workflow. Each entry lists the only statuses reachable from that
-// status: forward progression, plus FAILED from any in-progress status. DELIVERED,
-// FAILED and CANCELLED are terminal (empty list) and self-transitions are never allowed.
+// SME owners may only cancel CREATED parcels. Operational delivery transitions
+// belong exclusively to Operator receipt and assigned Rider delivery workflows.
 const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
-  CREATED: ["PICKED_UP", "CANCELLED"],
-  PICKED_UP: ["IN_TRANSIT", "FAILED"],
-  IN_TRANSIT: ["OUT_FOR_DELIVERY", "FAILED"],
-  OUT_FOR_DELIVERY: ["DELIVERED", "FAILED"],
+  CREATED: ["CANCELLED"],
+  PICKED_UP: [],
+  IN_TRANSIT: [],
+  OUT_FOR_DELIVERY: [],
   DELIVERED: [],
   FAILED: [],
   CANCELLED: [],
 };
 
 function isTerminal(status: OrderStatus) {
-  return ALLOWED_STATUS_TRANSITIONS[status].length === 0;
+  return ["DELIVERED", "FAILED", "CANCELLED"].includes(status);
 }
 
 // Owner-scoped status change. Ownership comes only from the authenticated caller, the

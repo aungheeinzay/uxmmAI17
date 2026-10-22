@@ -3,7 +3,7 @@ import { Prisma } from "../../generated/prisma/client";
 import type { OperatorOrdersQuery } from "./operator.validation";
 import type { ReceiveParcelRecord } from "./operator.types";
 
-const orderSelect = {
+export const orderSelect = {
   id: true, orderCode: true, ownerId: true, operatorId: true, recipientName: true,
   phoneNumber: true, township: true, deliveryAddress: true, senderName: true,
   parcelWeightKg: true, codAmount: true, currency: true, status: true,
@@ -14,6 +14,8 @@ const orderSelect = {
 
 export function buildWhere(query: OperatorOrdersQuery): Prisma.ParcelOrderWhereInput {
   const where: Prisma.ParcelOrderWhereInput = { owner: { role: "SME" } };
+  if (query.unassigned === "true") where.assignment = { is: null };
+  if (query.unassigned === "false") where.assignment = { isNot: null };
   if (query.status) where.status = query.status;
   if (query.township) where.township = { equals: query.township, mode: "insensitive" };
   if (query.search) where.OR = [
@@ -37,7 +39,10 @@ export function listWithCount(query: OperatorOrdersQuery) {
   ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 
-const orderDetailSelect = { ...orderSelect, statusEvents: {
+const orderDetailSelect = { ...orderSelect, assignment: { select: {
+  id: true, riderId: true, assignedById: true, assignedAt: true,
+  rider: { select: { id: true, fullName: true, phone: true } },
+} }, statusEvents: {
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       select: { id: true, previousStatus: true, status: true, note: true,
         createdAt: true, actor: { select: { id: true, fullName: true } } },

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const orderStatuses = ["CREATED", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED", "CANCELLED"] as const;
 export const operatorOrdersQuerySchema = z.object({
+  unassigned: z.enum(["true", "false"]).optional(),
   page: z.coerce.number().int().min(1).max(1000000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().min(1).max(120).optional(),
@@ -30,6 +31,11 @@ export const operatorOrderSchema = z.object({
   operator: personSchema.extend({ phone: z.string().nullable() }).nullable(),
 });
 export const operatorOrderDetailSchema = operatorOrderSchema.extend({
+  warehouseState: z.enum(["UNASSIGNED", "ASSIGNED", "DISPATCHED", "COMPLETED", "EXCEPTION"]).nullable().optional(),
+  receipt: z.object({ receivedAt: z.iso.datetime(), receivedBy: personSchema }).nullable().optional(),
+  failureNote: z.string().nullable().optional(),
+  assignment: z.object({ id: z.string().uuid(), riderId: z.string().uuid(), assignedById: z.string().uuid(), assignedAt: z.iso.datetime(),
+    rider: personSchema.extend({ phone: z.string().nullable() }), }).nullable().optional(),
   statusEvents: z.array(z.object({ id: z.string().uuid(), previousStatus: z.string(), status: z.string(),
     note: z.string().nullable(), createdAt: z.iso.datetime(), actor: personSchema })),
 });
@@ -41,6 +47,7 @@ export const operatorOrderListSchema = z.object({
 });
 export type OperatorOrder = z.infer<typeof operatorOrderSchema>;
 export type OperatorOrderDetail = z.infer<typeof operatorOrderDetailSchema>;
+export const receivedOperatorOrderSchema = operatorOrderDetailSchema.extend({ previousStatus: z.literal("CREATED") });
 export type OperatorOrderList = z.infer<typeof operatorOrderListSchema>;
 
 export function ordersSearchParams(query: OperatorOrdersQuery) {

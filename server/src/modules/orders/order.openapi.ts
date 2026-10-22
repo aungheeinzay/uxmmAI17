@@ -345,13 +345,13 @@ const orderDetailExample = {
 };
 
 const statusUpdateExample = {
-  status: "PICKED_UP",
-  note: "Parcel handed over to the assigned Operator",
+  status: "CANCELLED",
+  note: "Shop cancelled before parcel receipt",
 };
 
 const updatedOrderDetailExample = {
   ...orderDetailExample,
-  status: "PICKED_UP",
+  status: "CANCELLED",
   previousStatus: "CREATED",
   updatedAt: "2026-10-20T01:00:00.000Z",
 };
@@ -360,7 +360,7 @@ export const orderPaths = {
   "/api/sme/dashboard": {
     get: {
       operationId: "getOrderDashboard", tags: ["SME"], summary: "Get the authenticated SME's dashboard",
-      description: "Returns parcel totals and status counts for the authenticated SME, plus current-week and current-month shipment cohorts based on order creation time. Periods use UTC and begin Monday/month-start; successRate is delivered divided by created shipments as a percentage. Includes at most five recent parcels with their status event timeline, QR PNG data URL and assigned Operator. Rider assignment is not represented in the current data model, so deliveryRider is null.",
+      description: "Returns parcel totals and status counts for the authenticated SME, plus current-week and current-month shipment cohorts based on order creation time. Periods use UTC and begin Monday/month-start; successRate is delivered divided by created shipments as a percentage. Includes at most five recent parcels with their status event timeline, QR PNG data URL and assigned Operator. This existing dashboard response does not expose Rider assignment; deliveryRider remains null. Operator monitoring and Rider assignment endpoints expose assignment details.",
       security: bearerSecurity,
       responses: {
         200: response("SME order dashboard", successSchema(ref("OrderDashboard")), { success: true, data: dashboardExample }),
@@ -437,14 +437,11 @@ export const orderPaths = {
   },
   "/api/orders/{id}/status": {
     patch: {
-      operationId: "updateOrderStatus", tags: ["Orders"], summary: "Update a parcel's delivery status",
+      operationId: "updateOrderStatus", tags: ["Orders"], summary: "Cancel an owned CREATED parcel (SME only)",
       description: [
         "Changes the status of one parcel owned by the authenticated SME and returns the updated parcel with previousStatus set to the status it moved from. The actor is always the authenticated user; ownership, actor ids and timestamps are never accepted from the client.",
         "Transition rules (only these are permitted; self-transitions are rejected):",
-        "CREATED → PICKED_UP | CANCELLED;",
-        "PICKED_UP → IN_TRANSIT | FAILED;",
-        "IN_TRANSIT → OUT_FOR_DELIVERY | FAILED;",
-        "OUT_FOR_DELIVERY → DELIVERED | FAILED.",
+        "Only CREATED → CANCELLED. SME owners cannot set PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED or FAILED; these transitions belong to Operator receipt or assigned Rider delivery APIs.",
         "DELIVERED, FAILED and CANCELLED are terminal: any change from them fails with 409 ORDER_IS_TERMINAL.",
         "Any other combination fails with 409 STATUS_TRANSITION_NOT_ALLOWED.",
         "If another request changes the status first, the update is rejected with 409 STATUS_UPDATE_CONFLICT instead of silently overwriting it.",

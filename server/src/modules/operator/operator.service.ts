@@ -2,15 +2,16 @@ import { AppError } from "../../lib/errors/app-error";
 import * as repository from "./operator.repository";
 import type { OperatorOrdersQuery, ReceiveParcelInput } from "./operator.validation";
 import type { OperatorActor, OperatorOrderRow } from "./operator.types";
+import { deriveWarehouseState } from "./warehouse/warehouse.state";
 
-function serialize<T extends OperatorOrderRow>(row: T) {
+export function serializeOperatorOrder<T extends OperatorOrderRow>(row: T) {
   const { parcelWeightKg, codAmount, ...rest } = row;
   return { ...rest, parcelWeight: parcelWeightKg.toString(), parcelWeightUnit: "kg" as const,
     codAmount: codAmount.toString() };
 }
 export async function listOrders(query: OperatorOrdersQuery) {
   const [rows, total] = await repository.listWithCount(query);
-  return { orders: rows.map(serialize), pagination: {
+  return { orders: rows.map(serializeOperatorOrder), pagination: {
     page: query.page, pageSize: query.pageSize, total,
     totalPages: Math.ceil(total / query.pageSize),
   } };
@@ -18,7 +19,11 @@ export async function listOrders(query: OperatorOrdersQuery) {
 export async function getOrder(id: string) {
   const row = await repository.findOrder(id);
   if (!row) throw new AppError(404, "ORDER_NOT_FOUND", "Parcel not found.");
-  return serialize(row);
+  const receipt = row.statusEvents.find(event => event.previousStatus === "CREATED" && event.status === "PICKED_UP");
+  const failure = [...row.statusEvents].reverse().find(event => event.status === "FAILED");
+  return { ...serializeOperatorOrder(row), warehouseState: deriveWarehouseState(row.status, !!row.assignment),
+    receipt: receipt ? { receivedAt: receipt.createdAt, receivedBy: receipt.actor } : null,
+    failureNote: failure?.note ?? null };
 }
 
 export async function receiveParcel(actor: OperatorActor, id: string, input: ReceiveParcelInput) {
@@ -32,5 +37,5 @@ export async function receiveParcel(actor: OperatorActor, id: string, input: Rec
     orderId: current.id, ownerId: current.ownerId, actorId: actor.id, note: input.note || null,
   });
   if (!updated) throw new AppError(409, "STATUS_UPDATE_CONFLICT", "The parcel changed before it could be received. Refresh and try again.");
-  return { ...serialize(updated), previousStatus: "CREATED" as const };
+  return { ...serializeOperatorOrder(updated), previousStatus: "CREATED" as const };
 }

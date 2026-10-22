@@ -7,6 +7,7 @@ export const receiveParcelSchema = z.object({
 }).strict();
 export type ReceiveParcelInput = z.infer<typeof receiveParcelSchema>;
 export const operatorOrdersQuerySchema = z.object({
+  unassigned: z.enum(["true", "false"]).optional(),
   page: z.coerce.number().int().min(1).max(1000000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().min(1).max(120).optional(),

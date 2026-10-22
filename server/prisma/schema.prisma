@@ -26,6 +26,8 @@ model Profile {
   orders    ParcelOrder[]
   operatorOrders ParcelOrder[] @relation("OrderOperator")
   statusEvents OrderStatusEvent[]
+  riderAssignments RiderAssignment[] @relation("AssignmentRider")
+  assignedParcels RiderAssignment[] @relation("AssignmentOperator")
 
   @@map("profiles")
 }
@@ -127,6 +129,7 @@ model ParcelOrder {
   createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   statusEvents          OrderStatusEvent[]
+  assignment            RiderAssignment?
 
   @@index([ownerId])
   @@index([operatorId])
@@ -148,4 +151,19 @@ model OrderStatusEvent {
 
   @@index([orderId, createdAt])
   @@map("order_status_events")
+}
+
+// One permanent assignment per order in the MVP; no reassignment workflow.
+model RiderAssignment {
+  id           String      @id @default(uuid()) @db.Uuid
+  orderId      String      @unique @map("order_id") @db.Uuid
+  order        ParcelOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  riderId      String      @map("rider_id") @db.Uuid
+  rider        Profile     @relation("AssignmentRider", fields: [riderId], references: [id], onDelete: Restrict)
+  assignedById String      @map("assigned_by_id") @db.Uuid
+  assignedBy   Profile     @relation("AssignmentOperator", fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedAt   DateTime    @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  @@index([riderId, assignedAt])
+  @@map("rider_assignments")
 }

@@ -70,6 +70,15 @@ test('pagination, filters, consistent count, deterministic order and safe projec
   assert.doesNotMatch(JSON.stringify(listArgs.select), /account|password|session|token/i);
   assert.doesNotMatch(JSON.stringify(result.body), /password|session|token|Hash/);
 });
+
+test('assignment eligibility filters use the real relation and reject invalid values', async () => {
+  assert.equal((await get('/api/operator/orders?status=PICKED_UP&unassigned=true')).status, 200);
+  assert.deepEqual(listArgs.where.assignment, { is: null });
+  assert.equal(listArgs.where.status, 'PICKED_UP');
+  assert.equal((await get('/api/operator/orders?unassigned=false')).status, 200);
+  assert.deepEqual(listArgs.where.assignment, { isNot: null });
+  assert.equal((await get('/api/operator/orders?unassigned=maybe')).status, 400);
+});
 test('invalid inputs are rejected before database access', async () => {
   for (const query of ['page=0', 'page=1.1', 'pageSize=101', 'pageSize=0', 'status=RECEIVED', 'search=', 'createdDate=2026-02-30', 'ownerId=x', 'page=1&page=2']) {
     assert.equal((await get('/api/operator/orders?' + query)).status, 400, query);

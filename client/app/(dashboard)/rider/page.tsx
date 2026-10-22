@@ -1,1 +1,2 @@
-export default function Page() { return <h1 className="text-2xl font-semibold">Rider Dashboard</h1>; }
+import { AssignmentList } from "@/features/deliveries/components/assignment-list";
+export default function Page() { return <AssignmentList />; }

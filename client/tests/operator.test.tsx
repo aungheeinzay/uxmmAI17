@@ -35,10 +35,11 @@ it("shows profile settings and reuses session logout", async () => {
  await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
  expect(useAuthStore.getState().user).toBeNull(); expect(fetch).toHaveBeenCalledWith("/api/session/logout", expect.anything());
 });
-it("uses explicit unavailable operational metrics and functional quick action destinations", () => {
- render(<OperatorDashboard />); expect(screen.getAllByText("Not connected")).toHaveLength(3);
+it("shows the warehouse overview and functional quick action destinations without fabricated metrics", () => {
+ render(<OperatorDashboard />); expect(screen.getByRole("heading", { name: "Warehouse overview" })).toBeTruthy();
  expect(screen.getByRole("link", { name: "Manage Riders" }).getAttribute("href")).toBe("/operator/riders");
- expect(screen.getAllByText("No data available")).toHaveLength(1);
+ expect(screen.queryByText("Not connected")).toBeNull();
+ expect(screen.getByRole("link", { name: "Open Warehouse Management" }).getAttribute("href")).toBe("/operator/warehouse");
 });
 it("loads profile, saves editable fields only and updates shared UI identity", async () => {
  useAuthStore.getState().setUser(user);

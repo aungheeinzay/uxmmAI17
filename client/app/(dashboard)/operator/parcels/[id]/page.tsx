@@ -9,6 +9,6 @@ export default function Page(props: Props) {
 async function ParcelDetailsRoute({ params, searchParams }: Props) {
   const { id } = await params;
   const { returnTo } = await searchParams;
-  const backHref = typeof returnTo === "string" && /^\/operator\/parcels(?:\?|$)/.test(returnTo) ? returnTo : "/operator/parcels";
+  const backHref = typeof returnTo === "string" && /^\/operator\/(?:parcels|warehouse|monitoring|assignments)(?:\?|$)/.test(returnTo) ? returnTo : "/operator/parcels";
   return <ParcelDetails id={id} backHref={backHref} />;
 }

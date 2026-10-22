@@ -4,10 +4,35 @@ import { NextRequest } from "next/server";
 vi.mock("server-only", () => ({}));
 const { currentProfile, expressAuth, exchangeTokens } = vi.hoisted(() => ({ currentProfile: vi.fn(), expressAuth: vi.fn(), exchangeTokens: vi.fn() }));
 vi.mock("@/features/auth/server/express-auth", async importOriginal => ({ ...await importOriginal<object>(), currentProfile, expressAuth, exchangeTokens }));
-import { operatorOrdersSession } from "@/features/operator/server/operator-orders.session";
+import { operatorOrdersSession, receiveParcelSession } from "@/features/operator/server/operator-orders.session";
 import { SessionError } from "@/features/auth/server/express-auth";
 import { operatorUser, parcel, parcelList } from "./fixtures/operator-orders";
 const token = "a".repeat(43);
+it("receives through a fixed PATCH with server identity and sanitizes the response", async () => {
+  expressAuth.mockResolvedValue({ success: true, data: { ...parcel, status: "PICKED_UP", previousStatus: "CREATED", secret: "private" } });
+  const response = await receiveParcelSession(request({ id: parcel.id }));
+  expect(response.status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith(`/api/operator/orders/${parcel.id}/receive`, {}, token, "PATCH");
+  expect(JSON.stringify(await response.json())).not.toContain("private");
+});
+it("denies receiving without a trusted Operator session, valid origin and strict input", async () => {
+  for (const role of ["SME", "RIDER"]) {
+    currentProfile.mockResolvedValue({ ...operatorUser, role });
+    expect((await receiveParcelSession(request({ id: parcel.id }))).status).toBe(403);
+  }
+  currentProfile.mockResolvedValue(operatorUser);
+  expect((await receiveParcelSession(request({ id: parcel.id }, ""))).status).toBe(401);
+  expect((await receiveParcelSession(request({ id: parcel.id }, undefined, "https://evil.example"))).status).toBe(403);
+  for (const body of [{ id: "../auth" }, { id: parcel.id, actorId: operatorUser.id }, { id: parcel.id, role: "OPERATOR" }]) {
+    expect((await receiveParcelSession(request(body))).status).toBe(400);
+  }
+  expect(expressAuth).not.toHaveBeenCalled();
+});
+it.each([409, 429, 500, 503])("preserves receiving %s and valid session cookies", async status => {
+  expressAuth.mockRejectedValue(new SessionError(status, "SERVICE_UNAVAILABLE"));
+  const response = await receiveParcelSession(request({ id: parcel.id }));
+  expect(response.status).toBe(status); expect(response.cookies.get("parcelops_access")).toBeUndefined();
+});
 function request(body: unknown = {}, cookies = `parcelops_access=${token}`, origin = "http://localhost:3000") {
   return new NextRequest("http://localhost:3000/api/session/operator/orders", { method: "POST",
     headers: { Cookie: cookies, Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
