@@ -1,6 +1,7 @@
 import type { OrderStatus, Role } from "../../generated/prisma/enums";
+import type { OrderPricing } from "../providers/order-pricing";
 
-export type CreatedOrder = {
+export type CreatedOrder = OrderPricing & {
   id: string;
   orderCode: string;
   ownerId: string;
@@ -33,7 +34,7 @@ export type OrderQr = {
 };
 
 // Summary row for the parcel list. COD is kept separate from any delivery fee.
-export type ListedOrder = {
+export type ListedOrder = OrderPricing & {
   id: string;
   orderCode: string;
   recipientName: string;
@@ -52,7 +53,7 @@ export type ListedOrder = {
 };
 
 // Full parcel detail for one order the caller owns, including owner and Operator.
-export type OrderDetail = {
+export type OrderDetail = OrderPricing & {
   id: string;
   orderCode: string;
   ownerId: string;
@@ -103,7 +104,7 @@ export type DashboardTimelineEntry = {
   actor: { id: string; fullName: string | null; role: Role } | null;
 };
 
-export type DashboardRecentOrder = {
+export type DashboardRecentOrder = OrderPricing & {
   id: string;
   orderCode: string;
   recipient: { name: string; phoneNumber: string; township: string; deliveryAddress: string };

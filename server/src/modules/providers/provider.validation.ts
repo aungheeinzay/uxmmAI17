@@ -1,0 +1,11 @@
+import { z } from "zod";
+export const citySchema = z.string().normalize("NFC").trim().min(1).max(120).regex(/^[\p{L}\p{M} .'-]+$/u).transform(v => v.replace(/\s+/g, " ").toLowerCase());
+export const providerIdSchema = z.string().uuid();
+const name = z.string().trim().min(1).max(120);
+export const createProviderSchema = z.object({ name, isActive: z.boolean().optional() }).strict();
+export const updateProviderSchema = z.object({ name: name.optional(), isActive: z.boolean().optional() }).strict().refine(v => Object.keys(v).length > 0);
+export const priceSchema = z.object({ fee: z.union([z.string().trim(), z.number()]).transform(String).pipe(z.string().regex(/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/)), isActive: z.boolean().optional() }).strict();
+export const providerQuerySchema = z.object({ city: citySchema }).strict();
+export type CreateProviderInput = z.infer<typeof createProviderSchema>;
+export type UpdateProviderInput = z.infer<typeof updateProviderSchema>;
+export type PriceInput = z.infer<typeof priceSchema>;

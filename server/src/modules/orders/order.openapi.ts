@@ -1,3 +1,4 @@
+import { pricingFields, pricingRequired, createdPricingFields } from "../providers/provider.openapi";
 import { createOrderSchema, listOrdersQuerySchema, updateOrderStatusSchema } from "./order.validation";
 import { OrderStatus } from "../../generated/prisma/enums";
 import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
@@ -6,6 +7,8 @@ import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response
 const statusValues = Object.values(OrderStatus);
 
 const createExample = {
+  destinationCity: "yangon",
+  deliveryProviderId: "770e8400-e29b-41d4-a716-446655440000",
   recipientName: "Aung Aung",
   phoneNumber: "09123456789",
   township: "Kamayut",
@@ -18,6 +21,10 @@ const createExample = {
 };
 
 const createdExample = {
+  destinationCity: "yangon",
+  deliveryProviderId: createExample.deliveryProviderId,
+  deliveryProvider: { id: createExample.deliveryProviderId, name: "Shwe Express" },
+  deliveryFee: "3500.00",
   id: "660e8400-e29b-41d4-a716-446655440000",
   orderCode: "POA1B2C3D4E5F678",
   ownerId: "550e8400-e29b-41d4-a716-446655440000",
@@ -125,8 +132,9 @@ export const orderSchemas = {
   },
   DashboardRecentOrder: {
     type: "object",
-    required: ["id", "orderCode", "recipient", "parcel", "status", "createdAt", "trackingTimeline", "qr", "operator", "deliveryRider"],
+    required: [...pricingRequired, "id", "orderCode", "recipient", "parcel", "status", "createdAt", "trackingTimeline", "qr", "operator", "deliveryRider"],
     properties: {
+      ...pricingFields,
       id: { type: "string", format: "uuid" },
       orderCode: { type: "string" },
       recipient: {
@@ -187,7 +195,7 @@ export const orderSchemas = {
   },
   ListedOrder: {
     type: "object",
-    required: [
+    required: [...pricingRequired,
       "id", "orderCode", "recipientName", "phoneNumber", "township", "deliveryAddress",
       "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "senderName", "status",
       "createdAt", "operatorId", "operator",
@@ -202,6 +210,7 @@ export const orderSchemas = {
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...pricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
@@ -237,7 +246,7 @@ export const orderSchemas = {
   },
   CreatedOrder: {
     type: "object",
-    required: [
+    required: [...pricingRequired,
       "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt", "qr",
@@ -253,6 +262,7 @@ export const orderSchemas = {
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...createdPricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
@@ -265,7 +275,7 @@ export const orderSchemas = {
   },
   OrderDetail: {
     type: "object",
-    required: [
+    required: [...pricingRequired,
       "id", "orderCode", "ownerId", "operatorId", "recipientName", "phoneNumber",
       "township", "deliveryAddress", "parcelWeight", "parcelWeightUnit", "codAmount",
       "currency", "senderName", "deliveryInstructions", "status", "createdAt", "updatedAt",
@@ -282,6 +292,7 @@ export const orderSchemas = {
       deliveryAddress: { type: "string" },
       parcelWeight: { type: "string", description: "Weight in kilograms as a decimal string." },
       parcelWeightUnit: { type: "string", enum: ["kg"] },
+      ...pricingFields,
       codAmount: { type: "string", description: "Cash-on-delivery amount in MMK. Not a delivery fee." },
       currency: { type: "string", enum: ["MMK"] },
       senderName: { type: "string" },
@@ -388,7 +399,7 @@ export const orderPaths = {
     },
     post: {
       operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
-      description: "Authenticated SME users create an order for their own profile and assign it to an existing OPERATOR profile using operatorId. The server validates the target profile role and persists the operator profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
+      description: "Authenticated SME users create an order for their own profile and assign it to an existing OPERATOR profile using operatorId. The server validates the target profile role and persists the operator profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from the server-resolved fixed delivery fee. destinationCity and deliveryProviderId are required. Active city pricing is resolved and snapshotted in a Serializable transaction with bounded retries. Client deliveryFee is rejected. Delivery instructions are stored as text only.",
       security: bearerSecurity,
       requestBody: requestBody(ref("CreateOrderInput"), createExample),
       responses: {
@@ -396,7 +407,7 @@ export const orderPaths = {
         ...errorResponses([400, 401, 403, 404, 409, 500], {
           403: ["FORBIDDEN", "Insufficient permissions."],
           404: ["OPERATOR_NOT_AVAILABLE", "Operator is not available."],
-          409: ["ORDER_CREATE_FAILED", "Unable to create the order. Try again."],
+          409: ["PROVIDER_CITY_UNAVAILABLE", "Active provider/city pricing is required; PRICING_CONFLICT or ORDER_CREATE_FAILED may also occur. Refresh and retry."],
         }),
       },
     },

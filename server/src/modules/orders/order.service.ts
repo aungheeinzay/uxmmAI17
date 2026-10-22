@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
+import { serializePricing } from "../providers/order-pricing";
 import { AppError } from "../../lib/errors/app-error";
+import { isTransactionConflict } from "../../lib/errors/transaction-conflict";
 import { OrderStatus } from "../../generated/prisma/enums";
 import * as userService from "../users/user.service";
 import * as repository from "./order.repository";
@@ -29,6 +31,7 @@ async function generateQrImageDataUrl(identifier: string): Promise<string> {
 
 function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, operatorId: string, qrImageDataUrl: string): CreatedOrder {
   return {
+    ...serializePricing(order),
     id: order.id,
     orderCode: order.orderCode,
     ownerId: order.ownerId,
@@ -51,7 +54,8 @@ function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, op
 }
 
 export async function createOrder(ownerId: string, input: CreateOrderInput): Promise<CreatedOrder> {
-  await userService.getProfile(ownerId);
+  const owner = await userService.getProfile(ownerId);
+  if (owner.role !== "SME") throw new AppError(403, "FORBIDDEN", "Only SME users may create orders.");
   const operator = await repository.findOperator(input.operatorId);
   if (!operator) {
     throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
@@ -65,6 +69,8 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
         orderCode: generateOrderCode(),
         qrIdentifier,
         ownerId,
+        destinationCity: input.destinationCity,
+        deliveryProviderId: input.deliveryProviderId,
         operatorId: operator.id,
         recipientName: input.recipientName,
         phoneNumber: input.phoneNumber,
@@ -74,9 +80,16 @@ export async function createOrder(ownerId: string, input: CreateOrderInput): Pro
         codAmount: input.codAmount,
         senderName: input.senderName,
         deliveryInstructions,
+      }, price => {
+        if (!price || !price.provider.isActive) throw new AppError(409, "PROVIDER_CITY_UNAVAILABLE", "An active provider price for this city is required. Refresh providers and select again.");
+        return price.fee;
       });
       return serialize(order, operator.id, qrImageDataUrl);
     } catch (error) {
+      if (isTransactionConflict(error)) {
+        if (attempt < 4) continue;
+        throw new AppError(409, "PRICING_CONFLICT", "Pricing changed concurrently. Refresh providers and retry.");
+      }
       if (isForeignKeyConflict(error)) {
         throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
       }
@@ -110,6 +123,7 @@ export async function getOrderQr(ownerId: string, identifier: OrderIdentifier): 
 type OrderDetailRow = NonNullable<Awaited<ReturnType<typeof repository.findOrderForOwner>>>;
 function serializeDetail(order: OrderDetailRow): OrderDetail {
   return {
+    ...serializePricing(order),
     id: order.id,
     orderCode: order.orderCode,
     ownerId: order.ownerId,
@@ -191,6 +205,7 @@ export async function updateOrderStatus(ownerId: string, identifier: OrderIdenti
 type ListedOrderRow = Awaited<ReturnType<typeof repository.listOrders>>[number];
 function serializeListed(order: ListedOrderRow): ListedOrder {
   return {
+    ...serializePricing(order),
     id: order.id,
     orderCode: order.orderCode,
     recipientName: order.recipientName,
@@ -255,6 +270,7 @@ function serializeDashboardRecentOrder(order: DashboardRows[6][number], imageDat
   ];
 
   return {
+    ...serializePricing(order),
     id: order.id,
     orderCode: order.orderCode,
     recipient: {

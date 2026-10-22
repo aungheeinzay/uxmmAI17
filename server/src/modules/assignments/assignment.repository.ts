@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { pricingSelect } from "../providers/order-pricing";
 import { Prisma } from "../../generated/prisma/client";
 import type { OrderStatus } from "../../generated/prisma/enums";
 import type { AssignmentQuery } from "./assignment.validation";
@@ -6,6 +7,7 @@ import type { AssignmentQuery } from "./assignment.validation";
 type Transaction = Prisma.TransactionClient;
 const personSelect = { id: true, fullName: true, phone: true } as const;
 const orderSelect = {
+  ...pricingSelect,
   id: true, orderCode: true, recipientName: true, phoneNumber: true,
   deliveryAddress: true, township: true, deliveryInstructions: true,
   codAmount: true, currency: true, status: true,

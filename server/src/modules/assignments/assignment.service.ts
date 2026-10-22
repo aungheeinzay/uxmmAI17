@@ -1,5 +1,6 @@
 import type { Role, OrderStatus } from "../../generated/prisma/enums";
 import { AppError } from "../../lib/errors/app-error";
+import { serializePricing } from "../providers/order-pricing";
 import * as repository from "./assignment.repository";
 import type { AssignmentQuery, CreateAssignmentInput, DeliveryStatusInput } from "./assignment.validation";
 
@@ -12,7 +13,7 @@ const transitionConflict = () => new AppError(409, "STATUS_TRANSITION_NOT_ALLOWE
 function code(error: unknown) { return typeof error === "object" && error !== null && "code" in error ? error.code : undefined; }
 type AssignmentRow = Awaited<ReturnType<typeof repository.insertAssignment>>;
 function serialize<T extends AssignmentRow>(row: T) {
-  return { ...row, order: { ...row.order, codAmount: row.order.codAmount.toString() } };
+  return { ...row, order: { ...row.order, ...serializePricing(row.order), codAmount: row.order.codAmount.toString() } };
 }
 function pagination(query: AssignmentQuery, total: number) {
   return { ...query, total, totalPages: Math.ceil(total / query.pageSize) };

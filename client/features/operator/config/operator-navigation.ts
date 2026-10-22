@@ -3,6 +3,7 @@ export const operatorNavigation = [
  { title: "Dashboard", href: "/operator", icon: LayoutDashboard },
  { title: "Incoming Parcels", href: "/operator/parcels", icon: PackageOpen },
  { title: "Warehouse", href: "/operator/warehouse", icon: Warehouse },
+ { title: "Delivery Providers", href: "/operator/delivery-providers", icon: PackageOpen },
  { title: "Rider Management", href: "/operator/riders", icon: Users },
  { title: "Rider Assignment", href: "/operator/assignments", icon: Route },
  { title: "Delivery Monitoring", href: "/operator/monitoring", icon: MapPin },

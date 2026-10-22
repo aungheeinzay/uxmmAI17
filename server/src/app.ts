@@ -1,4 +1,5 @@
 import express from "express";
+import { providerAdminRouter, providerRouter } from "./modules/providers/provider.router";
 import { authRouter } from "./modules/auth/auth.router";
 import { userRouter } from "./modules/users/user.router";
 import { orderRouter } from "./modules/orders/order.router";
@@ -27,6 +28,8 @@ app.use("/api/users", userRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/sme", smeRouter);
 app.use("/api/operator", operatorRouter);
+app.use("/api/operator/delivery-providers", providerAdminRouter);
+app.use("/api/delivery-providers", providerRouter);
 app.use("/api/operator", operatorAssignmentRouter);
 app.use("/api/rider", riderDeliveryRouter);
 app.use("/api/riders", riderRouter);

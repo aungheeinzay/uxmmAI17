@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { providerPaths, providerSchemas } from "../modules/providers/provider.openapi";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./env";
 import { authPaths, authSchemas } from "../modules/auth/auth.openapi";
@@ -14,13 +15,14 @@ export const openApiDocument = {
   openapi: "3.0.3",
   info: { title: "ParcelOps AI API", version: "1.0.0", description: "Database-backed authentication and profiles. Use an opaque access token with Authorize; refresh tokens belong in the refresh request body." },
   servers: [{ url: "/", description: "Current server" }],
-  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "Orders" }, { name: "SME" }, { name: "Operator" }, { name: "Operator Warehouse" }, { name: "Riders" }, { name: "Rider Deliveries" }, { name: "Health" }],
+  tags: [{ name: "Authentication" }, { name: "Users" }, { name: "Orders" }, { name: "SME" }, { name: "Operator" }, { name: "Operator Warehouse" }, { name: "Delivery Providers", description: "Operator-managed providers and fixed city fees; authenticated SME discovery." }, { name: "Riders" }, { name: "Rider Deliveries" }, { name: "Health" }],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas },
   },
   paths: {
     ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
+    ...providerPaths,
     "/health": { get: {
       operationId: "health", tags: ["Health"], summary: "Check server health",
       description: "Returns process availability; does not check the database.", security: [],

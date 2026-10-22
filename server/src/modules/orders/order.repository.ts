@@ -2,10 +2,13 @@ import { prisma } from "../../config/prisma";
 import { Prisma } from "../../generated/prisma/client";
 import type { OrderStatus } from "../../generated/prisma/enums";
 import type { OrderIdentifier } from "./order.validation";
+import { pricingSelect } from "../providers/order-pricing";
 
 // One projection shared by the detail read and the status-update read so both
 // serialize to exactly the same shape.
 const orderDetailSelect = {
+  destinationCity: true, deliveryProviderId: true, deliveryFee: true,
+  deliveryProvider: { select: { id: true, name: true } },
   id: true,
   orderCode: true,
   ownerId: true,
@@ -27,6 +30,8 @@ const orderDetailSelect = {
 } as const satisfies Prisma.ParcelOrderSelect;
 
 export type OrderCreateRecord = {
+  destinationCity: string;
+  deliveryProviderId: string;
   orderCode: string;
   qrIdentifier: string;
   operatorId: string;
@@ -69,6 +74,8 @@ export function listOrders(filters: OrderListFilters) {
     skip: filters.skip,
     take: filters.take,
     select: {
+      destinationCity: true, deliveryProviderId: true, deliveryFee: true,
+      deliveryProvider: { select: { id: true, name: true } },
       id: true,
       orderCode: true,
       recipientName: true,
@@ -106,6 +113,7 @@ export function getDashboardData(ownerId: string, weekStart: Date, monthStart: D
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 5,
       select: {
+        ...pricingSelect,
         id: true,
         orderCode: true,
         recipientName: true,
@@ -204,9 +212,18 @@ export function findOperator(id: string) {
   });
 }
 
-export function createOrder(data: OrderCreateRecord) {
-  return prisma.parcelOrder.create({
+export function createOrder(data: OrderCreateRecord, validatePrice: (price: { fee: Prisma.Decimal; provider: { isActive: boolean } } | null) => Prisma.Decimal) {
+  return prisma.$transaction(async tx => {
+    const price = await tx.deliveryCityPrice.findFirst({
+      where: { providerId: data.deliveryProviderId, city: data.destinationCity, isActive: true },
+      select: { fee: true, provider: { select: { isActive: true } } },
+    });
+    const deliveryFee = validatePrice(price);
+    return tx.parcelOrder.create({
     data: {
+      destinationCity: data.destinationCity,
+      deliveryProviderId: data.deliveryProviderId,
+      deliveryFee,
       orderCode: data.orderCode,
       qrIdentifier: data.qrIdentifier,
       operatorId: data.operatorId,
@@ -220,5 +237,7 @@ export function createOrder(data: OrderCreateRecord) {
       senderName: data.senderName,
       deliveryInstructions: data.deliveryInstructions,
     },
-  });
+    include: { deliveryProvider: { select: { id: true, name: true } } },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

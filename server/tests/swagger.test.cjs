@@ -37,6 +37,8 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
   assert.equal(spec.openapi, '3.0.3');
   const operations = Object.entries(spec.paths).flatMap(([path, methods]) => Object.keys(methods).map(method => `${method} ${path}`));
   assert.deepEqual(operations.sort(), [
+    'get /api/delivery-providers', 'get /api/operator/delivery-providers', 'post /api/operator/delivery-providers',
+    'patch /api/operator/delivery-providers/{id}', 'put /api/operator/delivery-providers/{id}/city-prices/{city}',
     'post /api/auth/register', 'post /api/auth/login', 'post /api/auth/refresh',
     'post /api/auth/verify-email', 'post /api/auth/resend-verification', 'post /api/auth/forgot-password', 'post /api/auth/reset-password',
     'post /api/auth/logout', 'get /api/users/me', 'patch /api/users/me', 'get /health',

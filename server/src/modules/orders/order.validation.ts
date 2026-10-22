@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { citySchema } from "../providers/provider.validation";
 import { OrderStatus } from "../../generated/prisma/enums";
 
 // Local 09 + 7-9 subscriber digits, or international 959/+959 with the leading 0 omitted.
@@ -67,6 +68,8 @@ export const createOrderSchema = z.object({
   senderName: requiredText(120),
   deliveryInstructions: z.string().trim().max(1000).optional().nullable(),
   operatorId: z.string().uuid(),
+  destinationCity: citySchema,
+  deliveryProviderId: z.string().uuid(),
 }).strict();
 
 // Public parcel identifier for detail lookups: the UUID id or the generated order code.

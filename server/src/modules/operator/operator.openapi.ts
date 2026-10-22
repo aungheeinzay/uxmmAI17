@@ -1,3 +1,4 @@
+import { pricingFields, pricingRequired } from "../providers/provider.openapi";
 import { OrderStatus } from "../../generated/prisma/enums";
 import { bearerSecurity, errorResponses, inputSchema, ref, response, successSchema } from "../../lib/openapi";
 import { operatorOrdersQuerySchema, receiveParcelSchema } from "./operator.validation";
@@ -15,7 +16,8 @@ export const operatorSchemas = {
     type: "object", required: ["previousStatus"], properties: { previousStatus: { type: "string", enum: ["CREATED"] } },
   }] },
   OperatorOrdersQuery: inputSchema(operatorOrdersQuerySchema),
-  OperatorOrder: { type: "object", required: ["id", "orderCode", "ownerId", "recipientName", "phoneNumber", "township", "deliveryAddress", "senderName", "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "status", "createdAt", "updatedAt", "owner", "operatorId", "operator", "deliveryInstructions"], properties: {
+  OperatorOrder: { type: "object", required: [...pricingRequired, "id", "orderCode", "ownerId", "recipientName", "phoneNumber", "township", "deliveryAddress", "senderName", "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "status", "createdAt", "updatedAt", "owner", "operatorId", "operator", "deliveryInstructions"], properties: {
+    ...pricingFields,
     id: uuid, orderCode: text, ownerId: uuid, recipientName: text, phoneNumber: text,
     township: text, deliveryAddress: text, senderName: text, parcelWeight: { type: "string", description: "Decimal kilograms" },
     parcelWeightUnit: { type: "string", enum: ["kg"] }, codAmount: { type: "string", description: "Decimal COD amount" },

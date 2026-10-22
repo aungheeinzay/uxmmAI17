@@ -1,3 +1,4 @@
+import { pricingFields, pricingRequired } from "../providers/provider.openapi";
 import { OrderStatus } from "../../generated/prisma/enums";
 import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
 import { assignmentQuerySchema, createAssignmentSchema } from "./assignment.validation";
@@ -7,7 +8,8 @@ const text = { type: "string" };
 const person = { type: "object", required: ["id", "fullName", "phone"], properties: {
   id: uuid, fullName: { ...text, nullable: true }, phone: { ...text, nullable: true },
 } };
-const order = { type: "object", required: ["id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "codAmount", "currency", "status"], properties: {
+const order = { type: "object", required: [...pricingRequired, "id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "codAmount", "currency", "status"], properties: {
+  ...pricingFields,
   id: uuid, orderCode: text, recipientName: text, phoneNumber: text, deliveryAddress: text,
   township: text, deliveryInstructions: { ...text, nullable: true }, codAmount: { ...text, description: "Exact decimal string" }, currency: text,
   status: { type: "string", enum: Object.values(OrderStatus) },

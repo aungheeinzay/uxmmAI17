@@ -1,9 +1,11 @@
 import { prisma } from "../../config/prisma";
+import { pricingSelect } from "../providers/order-pricing";
 import { Prisma } from "../../generated/prisma/client";
 import type { OperatorOrdersQuery } from "./operator.validation";
 import type { ReceiveParcelRecord } from "./operator.types";
 
 export const orderSelect = {
+  ...pricingSelect,
   id: true, orderCode: true, ownerId: true, operatorId: true, recipientName: true,
   phoneNumber: true, township: true, deliveryAddress: true, senderName: true,
   parcelWeightKg: true, codAmount: true, currency: true, status: true,

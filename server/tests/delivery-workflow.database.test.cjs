@@ -19,6 +19,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
   const password = `test-only-${randomUUID()}`;
   const passwordHash = await hashPassword(password);
   const orders = [];
+  const providerId = randomUUID();
   let server;
   try {
     for (const [role, id] of Object.entries(ids)) {
@@ -48,7 +49,8 @@ test('full delivery workflow on the explicitly confirmed development database', 
     assert.equal(constraints.length, 3);
     const rls = await prisma.$queryRaw`SELECT relrowsecurity FROM pg_class WHERE oid = 'public.rider_assignments'::regclass`;
     assert.equal(rls[0].relrowsecurity, true);
-    const created = await call('POST', '/api/orders', 'SME', { operatorId: ids.OPERATOR, recipientName: 'Fictional Workflow Recipient', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional workflow test address', senderName: 'Fictional Workflow Shop', parcelWeight: 1, codAmount: '25000.50' });
+    await prisma.deliveryProvider.create({ data: { id: providerId, name: `Workflow fixture ${providerId}`, cityPrices: { create: { city: "yangon", fee: "3500" } } } });
+    const created = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", operatorId: ids.OPERATOR, recipientName: 'Fictional Workflow Recipient', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional workflow test address', senderName: 'Fictional Workflow Shop', parcelWeight: 1, codAmount: '25000.50' });
     assert.equal(created.status, 201); const orderId = created.body.data.id; orders.push(orderId);
     assert.equal(created.body.data.status, 'CREATED');
     async function warehouseState(expected) {
@@ -119,7 +121,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
     assert.equal((await call('GET', `/api/orders/${orderId}`, 'SME')).body.data.status, 'DELIVERED');
     const monitoring = await call('GET', '/api/operator/assignments', 'OPERATOR');
     assert.equal(monitoring.body.data.assignments.find(item => item.id === assignment.id).order.status, 'DELIVERED');
-    const cancelOrder = await call('POST', '/api/orders', 'SME', { operatorId: ids.OPERATOR, recipientName: 'Fictional Cancellation', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: 1, codAmount: '0' });
+    const cancelOrder = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", operatorId: ids.OPERATOR, recipientName: 'Fictional Cancellation', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: 1, codAmount: '0' });
     assert.equal(cancelOrder.status, 201); orders.push(cancelOrder.body.data.id);
     assert.equal((await call('PATCH', `/api/orders/${cancelOrder.body.data.id}/status`, 'SME', { status: 'CANCELLED' })).status, 200);
     const cancelled = await call('GET', `/api/operator/warehouse/parcels?search=${cancelOrder.body.data.orderCode}`, 'OPERATOR');
@@ -132,6 +134,8 @@ test('full delivery workflow on the explicitly confirmed development database', 
     await prisma.orderStatusEvent.deleteMany({ where: { orderId: { in: createdIds } } });
     await prisma.riderAssignment.deleteMany({ where: { orderId: { in: createdIds } } });
     await prisma.parcelOrder.deleteMany({ where: { id: { in: createdIds }, ownerId: ids.SME } });
+    await prisma.deliveryCityPrice.deleteMany({ where: { providerId } });
+    await prisma.deliveryProvider.deleteMany({ where: { id: providerId } });
     const fixtureIds = Object.values(ids);
     await prisma.account.deleteMany({ where: { id: { in: fixtureIds }, email: { startsWith: 'workflow-' } } });
     await prisma.profile.deleteMany({ where: { id: { in: fixtureIds } } });

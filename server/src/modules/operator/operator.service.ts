@@ -1,4 +1,5 @@
 import { AppError } from "../../lib/errors/app-error";
+import { serializePricing } from "../providers/order-pricing";
 import * as repository from "./operator.repository";
 import type { OperatorOrdersQuery, ReceiveParcelInput } from "./operator.validation";
 import type { OperatorActor, OperatorOrderRow } from "./operator.types";
@@ -6,7 +7,7 @@ import { deriveWarehouseState } from "./warehouse/warehouse.state";
 
 export function serializeOperatorOrder<T extends OperatorOrderRow>(row: T) {
   const { parcelWeightKg, codAmount, ...rest } = row;
-  return { ...rest, parcelWeight: parcelWeightKg.toString(), parcelWeightUnit: "kg" as const,
+  return { ...rest, ...serializePricing(row), parcelWeight: parcelWeightKg.toString(), parcelWeightUnit: "kg" as const,
     codAmount: codAmount.toString() };
 }
 export async function listOrders(query: OperatorOrdersQuery) {

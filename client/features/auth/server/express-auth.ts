@@ -18,7 +18,7 @@ export const tokenSchema = z.object({
 });
 export type Tokens = z.infer<typeof tokenSchema>["data"];
 
-export async function expressAuth(path: string, body?: unknown, accessToken?: string, method?: "PATCH"): Promise<unknown> {
+export async function expressAuth(path: string, body?: unknown, accessToken?: string, method?: "PATCH" | "PUT"): Promise<unknown> {
   const base = new URL(process.env.EXPRESS_API_URL ?? "http://localhost:4000");
   if (!["http:", "https:"].includes(base.protocol) || base.username || base.password || base.search || base.hash) {
     throw new SessionError(503, "CONFIGURATION_ERROR");
