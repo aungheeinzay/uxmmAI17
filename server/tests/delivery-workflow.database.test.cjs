@@ -50,6 +50,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
     const rls = await prisma.$queryRaw`SELECT relrowsecurity FROM pg_class WHERE oid = 'public.rider_assignments'::regclass`;
     assert.equal(rls[0].relrowsecurity, true);
     await prisma.deliveryProvider.create({ data: { id: providerId, name: `Workflow fixture ${providerId}`, cityPrices: { create: { city: "yangon", fee: "3500" } } } });
+    await prisma.profile.updateMany({ where: { id: { in: [ids.OPERATOR, ids.RIDER, ids.OTHER, ids.INELIGIBLE] } }, data: { providerId } });
     const created = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", operatorId: ids.OPERATOR, recipientName: 'Fictional Workflow Recipient', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional workflow test address', senderName: 'Fictional Workflow Shop', parcelWeight: 1, codAmount: '25000.50' });
     assert.equal(created.status, 201); const orderId = created.body.data.id; orders.push(orderId);
     assert.equal(created.body.data.status, 'CREATED');
@@ -135,6 +136,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
     await prisma.riderAssignment.deleteMany({ where: { orderId: { in: createdIds } } });
     await prisma.parcelOrder.deleteMany({ where: { id: { in: createdIds }, ownerId: ids.SME } });
     await prisma.deliveryCityPrice.deleteMany({ where: { providerId } });
+    await prisma.profile.updateMany({ where: { id: { in: Object.values(ids) }, providerId }, data: { providerId: null } });
     await prisma.deliveryProvider.deleteMany({ where: { id: providerId } });
     const fixtureIds = Object.values(ids);
     await prisma.account.deleteMany({ where: { id: { in: fixtureIds }, email: { startsWith: 'workflow-' } } });

@@ -1,6 +1,7 @@
 import type { Role, OrderStatus } from "../../generated/prisma/enums";
 import { AppError } from "../../lib/errors/app-error";
 import { serializePricing } from "../providers/order-pricing";
+import { isTransactionConflict } from "../../lib/errors/transaction-conflict";
 import * as repository from "./assignment.repository";
 import type { AssignmentQuery, CreateAssignmentInput, DeliveryStatusInput } from "./assignment.validation";
 
@@ -18,31 +19,44 @@ function serialize<T extends AssignmentRow>(row: T) {
 function pagination(query: AssignmentQuery, total: number) {
   return { ...query, total, totalPages: Math.ceil(total / query.pageSize) };
 }
+async function providerScope(tx: Parameters<typeof repository.findOperatorMembership>[0], actor: Actor) {
+  const member = await repository.findOperatorMembership(tx, actor.id);
+  if (member?.role !== "OPERATOR") throw new AppError(403, "FORBIDDEN", "Only Operators may assign Riders.");
+  if (!member.providerId) throw new AppError(409, "PROVIDER_MEMBERSHIP_REQUIRED", "Your delivery provider has not been configured.");
+  return member.providerId;
+}
 export async function eligibleRiders(actor: Actor, query: AssignmentQuery) {
   requireRole(actor, "OPERATOR");
-  const [riders, total] = await repository.listEligibleRiders(query);
-  return { riders, pagination: pagination(query, total) };
+  return repository.transaction(async tx => {
+    const providerId = await providerScope(tx, actor);
+    const [riders, total] = await repository.listEligibleRiders(tx, query, providerId);
+    return { riders, pagination: pagination(query, total) };
+  });
 }
 export async function assignParcel(actor: Actor, input: CreateAssignmentInput) {
   requireRole(actor, "OPERATOR");
   try {
     return await repository.transaction(async tx => {
-      const order = await repository.findAssignableOrder(tx, input.orderId);
+      const providerId = await providerScope(tx, actor);
+      const order = await repository.findAssignableOrder(tx, input.orderId, providerId);
       if (!order) throw new AppError(404, "ORDER_NOT_FOUND", "Parcel not found.");
       if (order.status !== "PICKED_UP") throw new AppError(409, "ORDER_NOT_RECEIVED", "Only PICKED_UP parcels can be assigned.");
       if (order.assignment) throw conflict();
-      if (!await repository.findEligibleRider(tx, input.riderId)) throw new AppError(404, "RIDER_NOT_ELIGIBLE", "An activated Rider account was not found.");
+      if (!await repository.findEligibleRider(tx, input.riderId, providerId)) throw new AppError(404, "RIDER_NOT_ELIGIBLE", "An activated Rider in your provider was not found.");
       return serialize(await repository.insertAssignment(tx, { ...input, assignedById: actor.id }));
     });
   } catch (error) {
-    if (["P2002", "P2034", "P2003"].includes(String(code(error)))) throw conflict();
+    if (["P2002", "P2003"].includes(String(code(error))) || isTransactionConflict(error)) throw conflict();
     throw error;
   }
 }
 export async function operatorAssignments(actor: Actor, query: AssignmentQuery) {
   requireRole(actor, "OPERATOR");
-  const [rows, total] = await repository.listAssignments(query);
-  return { assignments: rows.map(serialize), pagination: pagination(query, total) };
+  return repository.transaction(async tx => {
+    const providerId = await providerScope(tx, actor);
+    const [rows, total] = await repository.listProviderAssignments(tx, query, providerId);
+    return { assignments: rows.map(serialize), pagination: pagination(query, total) };
+  });
 }
 export async function riderAssignments(actor: Actor, query: AssignmentQuery) {
   requireRole(actor, "RIDER");
@@ -77,7 +91,7 @@ export async function updateDeliveryStatus(actor: Actor, id: string, input: Deli
       return { ...serialize(updated), previousStatus };
     });
   } catch (error) {
-    if (code(error) === "P2034") throw transitionConflict();
+    if (isTransactionConflict(error)) throw transitionConflict();
     throw error;
   }
 }

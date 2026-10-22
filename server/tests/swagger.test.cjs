@@ -48,6 +48,7 @@ test('Swagger HTML, assets and valid JSON document are served', async () => {
     'get /api/operator/orders', 'get /api/operator/orders/{id}',
     'patch /api/operator/orders/{id}/receive',
     'get /api/operator/riders', 'get /api/operator/assignments', 'post /api/operator/assignments',
+    'get /api/operator/riders/overview', 'get /api/operator/riders/invitations', 'get /api/operator/riders/{riderId}',
     'get /api/operator/warehouse/overview', 'get /api/operator/warehouse/parcels',
     'get /api/rider/assignments', 'get /api/rider/assignments/{id}', 'patch /api/rider/assignments/{id}/status',
     'get /api/sme/dashboard',

@@ -5,6 +5,7 @@ import { sendRiderInvitationEmail } from "../../lib/email/email.service";
 import { hashPassword } from "../auth/auth.password";
 import { tokenDigest } from "../auth/auth.email.service";
 import * as repository from "./rider.repository";
+import { isTransactionConflict } from "../../lib/errors/transaction-conflict";
 
 const isUniqueConflict = (error: unknown) => typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 const conflict = () => new AppError(409, "RIDER_INVITATION_CONFLICT", "An account or pending invitation already exists for this email.");
@@ -17,8 +18,9 @@ export async function inviteRider(actor: { id: string; role: Role }, input: { em
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
   let invitation;
   try { invitation = await repository.reserveInvitation({ ...input, email, tokenHash, invitedById: actor.id, expiresAt }); }
-  catch (error) { if (isUniqueConflict(error)) throw conflict(); throw error; }
+  catch (error) { if (isUniqueConflict(error) || isTransactionConflict(error)) throw conflict(); throw error; }
   if (invitation.status === "forbidden") throw new AppError(403, "FORBIDDEN", "Only Operators may invite Riders.");
+  if (invitation.status === "membership_required") throw new AppError(409, "PROVIDER_MEMBERSHIP_REQUIRED", "Your delivery provider has not been configured.");
   if (invitation.status === "conflict") throw conflict();
   try { await sendRiderInvitationEmail(email, token); }
   catch {
@@ -31,8 +33,16 @@ export async function inviteRider(actor: { id: string; role: Role }, input: { em
 export async function activateRider(input: { token: string; password: string }) {
   const passwordHash = await hashPassword(input.password);
   let result;
-  try { result = await repository.activateInvitation(tokenDigest(input.token), passwordHash); }
-  catch (error) { if (isUniqueConflict(error)) throw conflict(); throw error; }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { result = await repository.activateInvitation(tokenDigest(input.token), passwordHash); break; }
+    catch (error) {
+      // Re-read after a serialization conflict so a concurrently consumed invitation
+      // retains the existing invalid-token behavior rather than creating a second account.
+      if (isTransactionConflict(error) && attempt < 2) continue;
+      if (isUniqueConflict(error) || isTransactionConflict(error)) throw conflict();
+      throw error;
+    }
+  }
   if (result !== "activated") throw new AppError(400, "INVALID_INVITATION_TOKEN", "Invalid, expired, revoked or already used invitation.");
   return { message: "Rider account activated. You can now sign in." };
 }

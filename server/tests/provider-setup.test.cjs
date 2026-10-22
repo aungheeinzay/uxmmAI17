@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
-const { seedProviders, assignProvider, setupTarget } = require('../dist/seed/providers.setup');
+const { seedProviders, assignProvider, assignRiderProvider, setupTarget } = require('../dist/seed/providers.setup');
 const operatorId = randomUUID(), providerId = randomUUID();
 
 test('provider setup refuses production, unconfirmed and unapproved remote targets', () => {
@@ -28,7 +28,7 @@ function fixture(role = 'OPERATOR', membership = null, exists = true, verified =
     assert.equal(options.isolationLevel, 'Serializable');
     return work({
       profile: { findUnique: async args => { assert.equal(args.where.id, operatorId); return { id: operatorId, role, providerId: membership, account: { emailVerifiedAt: verified ? new Date() : null } }; },
-        updateMany: async args => { assert.deepEqual(args.where, { id: operatorId, role: 'OPERATOR', providerId: null }); assert.deepEqual(args.data, { providerId }); membership = providerId; writes++; return { count: 1 }; } },
+        updateMany: async args => { assert.deepEqual(args.where, { id: operatorId, role, providerId: null }); assert.deepEqual(args.data, { providerId }); membership = providerId; writes++; return { count: 1 }; } },
       deliveryProvider: { findUnique: async () => exists ? { id: providerId, name: 'Flash Deliver' } : null },
     });
   } };
@@ -49,4 +49,11 @@ test('provisioning refuses existing membership reassignment', async () => {
   const f = fixture('OPERATOR', randomUUID());
   await assert.rejects(() => assignProvider(f.db, operatorId, providerId), /reassignment is refused/);
   assert.equal(f.writes(), 0);
+});
+test('Rider provisioning requires verified existing RIDER and explicit IDs and preserves repeat safety', async () => {
+  const f = fixture('RIDER');
+  assert.equal((await assignRiderProvider(f.db, operatorId, providerId)).changed, true);
+  assert.equal((await assignRiderProvider(f.db, operatorId, providerId)).changed, false);
+  await assert.rejects(() => assignRiderProvider(fixture('SME').db, operatorId, providerId));
+  await assert.rejects(() => assignRiderProvider(fixture('OPERATOR').db, operatorId, providerId));
 });

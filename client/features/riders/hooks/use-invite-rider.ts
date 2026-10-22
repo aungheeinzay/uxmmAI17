@@ -10,7 +10,7 @@ export function useInviteRider() {
  async function submit(values: InviteRiderValues) {
   if (locked.current) return false;
   locked.current = true; setIsPending(true); setError(null); setSuccess(false);
-  try { await inviteRider(values); setSuccess(true); return true; }
+  try { await inviteRider(values); setSuccess(true); window.dispatchEvent(new Event("operator-parcels-changed")); return true; }
   catch (cause) { setError(riderErrorMessage(cause)); return false; }
   finally { locked.current = false; setIsPending(false); }
  }

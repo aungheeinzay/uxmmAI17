@@ -19,7 +19,8 @@ auth.findSession = async hash => {
 };
 let state, queue, failEvent, failRead, failConditional, txError, uniqueError, transactionOptions, calls;
 const person = id => ({ id, fullName: 'Fictional Test', phone: null });
-function fresh() { return { order: { id: ids.order, status: 'PICKED_UP', ownerRole: 'SME' }, assignment: null, events: [], eligible: true }; }
+ids.provider = randomUUID();
+function fresh() { return { providerId: ids.provider, riderProvider: ids.provider, order: { id: ids.order, deliveryProviderId: ids.provider, status: 'PICKED_UP', ownerRole: 'SME' }, assignment: null, events: [], eligible: true }; }
 function assignmentRow(db, detail = false) {
   if (!db.assignment) return null;
   const order = { id: ids.order, orderCode: 'PODEAD000000000001', recipientName: 'Fictional Recipient', phoneNumber: 'TEST-NOT-DIALABLE',
@@ -30,12 +31,14 @@ function assignmentRow(db, detail = false) {
 function client(db) {
   return {
     profile: {
-      findFirst: async args => { calls.push(args); return args.where.id === ids.rider && db.eligible ? person(ids.rider) : null; },
+      findUnique: async () => ({ role: 'OPERATOR', providerId: db.providerId }),
+      findMany: args => prisma.profile.findMany(args), count: args => prisma.profile.count(args),
+      findFirst: async args => { calls.push(args); return args.where.id === ids.rider && args.where.providerId === db.riderProvider && db.eligible ? person(ids.rider) : null; },
     },
     parcelOrder: {
       findFirst: async args => {
         calls.push(args);
-        return args.where.id === ids.order && db.order.ownerRole === 'SME' ? { id: ids.order, status: db.order.status, assignment: db.assignment && { id: db.assignment.id } } : null;
+        return args.where.id === ids.order && args.where.deliveryProviderId === db.order.deliveryProviderId && db.order.ownerRole === 'SME' ? { id: ids.order, status: db.order.status, assignment: db.assignment && { id: db.assignment.id } } : null;
       },
       updateMany: async args => {
         calls.push(args);
@@ -46,6 +49,7 @@ function client(db) {
       },
     },
     riderAssignment: {
+      findMany: args => prisma.riderAssignment.findMany(args), count: args => prisma.riderAssignment.count(args),
       create: async args => {
         calls.push(args);
         if (uniqueError || db.assignment) throw Object.assign(new Error('unique'), { code: 'P2002' });
@@ -108,13 +112,18 @@ test('all new endpoints require authentication and correct roles before database
   assert.equal(calls.length, 0);
 });
 test('eligible riders use verified linked accounts and expose safe identity fields only', async () => {
-  const result = await request('/api/operator/riders?page=2&pageSize=10');
-  assert.equal(result.status, 200); assert.equal(result.cache, 'no-store');
-  assert.deepEqual(result.body.data.riders, [person(ids.rider)]);
-  assert.deepEqual(calls[0].where, { role: 'RIDER', account: { is: { emailVerifiedAt: { not: null } } } });
+  const data = await service.eligibleRiders({ id: ids.operator, role: 'OPERATOR' }, { page: 2, pageSize: 10 });
+  assert.deepEqual(data.riders, [person(ids.rider)]);
+  assert.deepEqual(calls[0].where, { role: 'RIDER', providerId: ids.provider, account: { is: { emailVerifiedAt: { not: null } } } });
   assert.equal(calls[0].skip, 10); assert.equal(calls[0].take, 10);
   assert.deepEqual(calls[0].select, { id: true, fullName: true, phone: true });
-  state.eligible = false; assert.deepEqual((await request('/api/operator/riders')).body.data.riders, []);
+  state.eligible = false; assert.deepEqual((await service.eligibleRiders({ id: ids.operator, role: 'OPERATOR' }, { page: 1, pageSize: 20 })).riders, []);
+});
+
+test('assignment refuses another provider Rider or parcel and missing membership', async () => {
+  state.riderProvider = randomUUID(); assert.equal((await create()).status, 404);
+  state.riderProvider = ids.provider; state.order.deliveryProviderId = randomUUID(); assert.equal((await create()).status, 404);
+  state.providerId = null; assert.equal((await create()).body.error.code, 'PROVIDER_MEMBERSHIP_REQUIRED');
 });
 test('strict request IDs and identity/role/status injection are rejected', async () => {
   for (const body of [{ orderId: 'bad', riderId: ids.rider }, { orderId: ids.order, riderId: 'bad' }, { orderId: ids.order, riderId: ids.rider, assignedById: ids.other }, { orderId: ids.order, riderId: ids.rider, role: 'OPERATOR' }, { orderId: ids.order, riderId: ids.rider, status: 'IN_TRANSIT' }]) assert.equal((await create(body)).status, 400);

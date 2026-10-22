@@ -55,12 +55,15 @@ model RiderInvitation {
   tokenHash   String    @unique @map("token_hash")
   invitedById String    @map("invited_by_id") @db.Uuid
   invitedBy   Account   @relation(fields: [invitedById], references: [id], onDelete: Restrict)
+  providerId String? @map("provider_id") @db.Uuid
+  provider DeliveryProvider? @relation(fields: [providerId], references: [id], onDelete: Restrict)
   expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
   acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz(3)
   revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([invitedById])
+  @@index([providerId, expiresAt])
   @@index([expiresAt])
   @@map("rider_invitations")
 }
@@ -186,6 +189,7 @@ model DeliveryProvider {
   cityPrices DeliveryCityPrice[]
   orders ParcelOrder[]
   operators Profile[] @relation("OperatorProvider")
+  invitations RiderInvitation[]
   @@index([isActive], map: "legacy_delivery_services_is_active_idx")
   @@map("legacy_delivery_services")
 }

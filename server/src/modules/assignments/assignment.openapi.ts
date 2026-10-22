@@ -44,9 +44,6 @@ export const assignmentSchemas = {
   AssignmentList: { type: "object", required: ["assignments", "pagination"], properties: {
     assignments: { type: "array", items: ref("RiderAssignment") }, pagination,
   } },
-  EligibleRiders: { type: "object", required: ["riders", "pagination"], properties: {
-    riders: { type: "array", items: ref("AssignmentPerson") }, pagination,
-  } },
 };
 const errors = errorResponses([400, 401, 403, 404, 409, 500], {
   403: ["FORBIDDEN", "Insufficient permissions."],
@@ -58,13 +55,9 @@ const idParameter = [{ in: "path", name: "id", required: true, schema: uuid }];
 const operator = { tags: ["Operator"], security: bearerSecurity };
 const rider = { tags: ["Rider Deliveries"], security: bearerSecurity };
 export const assignmentPaths = {
-  "/api/operator/riders": { get: { ...operator, operationId: "operatorEligibleRiders", summary: "List activated Riders (OPERATOR only)",
-    description: "RIDER profiles with a linked email-verified account. Pending invitations are not accounts. No online, availability, GPS or disabled-account flags exist. Paginated by profile ID. No email, credentials or session fields returned.",
-    parameters: query, responses: { ...errorResponses([400, 401, 403, 500], { 403: ["FORBIDDEN", "Insufficient permissions."] }), 200: response("Eligible Riders", successSchema(ref("EligibleRiders"))) },
-  } },
   "/api/operator/assignments": {
     post: { ...operator, operationId: "operatorAssignParcel", summary: "Assign a received parcel (OPERATOR only)",
-      description: "SME-owned order must be PICKED_UP and have no existing assignment. Rider must have a verified RIDER account. Eligibility checks and insertion run in a Serializable transaction, backed by unique orderId. assignedById comes from authentication. Assignment does not change order status or create a status event. No reassignment. All Operators share the current single delivery operation.",
+      description: "SME-owned order must be PICKED_UP and have no existing assignment. Rider must have a verified RIDER account with the same persisted provider membership as the Operator; the order deliveryProviderId must also match. Missing membership returns 409 PROVIDER_MEMBERSHIP_REQUIRED; other-provider parcels or Riders return 404. Eligibility checks and insertion run in a Serializable transaction, backed by unique orderId. assignedById comes from authentication. Assignment does not change order status or create a status event. No reassignment. DELIVERING workload does not impose a capacity restriction.",
       requestBody: requestBody(ref("CreateAssignmentInput"), { orderId: "660e8400-e29b-41d4-a716-446655440000", riderId: "770e8400-e29b-41d4-a716-446655440000" }),
       responses: { ...errors,
         404: response("ORDER_NOT_FOUND or RIDER_NOT_ELIGIBLE (missing, wrong-role, unverified, or accountless Rider)", ref("Error")),
@@ -73,8 +66,8 @@ export const assignmentPaths = {
       },
     },
     get: { ...operator, operationId: "operatorAssignments", summary: "List assignments (OPERATOR only)",
-      description: "All assignments in the single delivery operation, newest assignedAt then id first. Includes current order status, Rider and assigning Operator identities.", parameters: query,
-      responses: { ...errorResponses([400, 401, 403, 500], { 403: ["FORBIDDEN", "Insufficient permissions."] }), 200: response("Paginated assignments", successSchema(ref("AssignmentList"))) },
+      description: "Only assignments whose Rider and order both belong to the authenticated Operator's persisted provider, newest assignedAt then id first. Includes current order status, Rider and assigning Operator identities.", parameters: query,
+      responses: { ...errorResponses([400, 401, 403, 409, 500], { 403: ["FORBIDDEN", "Insufficient permissions."], 409: ["PROVIDER_MEMBERSHIP_REQUIRED", "Your delivery provider has not been configured."] }), 200: response("Paginated assignments", successSchema(ref("AssignmentList"))) },
     },
   },
   "/api/rider/assignments": { get: { ...rider, operationId: "riderAssignments", summary: "List my assignments (RIDER only)",

@@ -147,6 +147,20 @@ Enforce these invariants:
 7. Assignment and related operational state changes must be transactionally consistent.
 8. Do not allow a Rider to claim arbitrary warehouse parcels.
 
+### Provider-scoped Rider management and assignments (approved 22 October 2026)
+
+Operator management reads and assignment operations resolve the current persisted
+Profile.providerId. RIDER profiles use the same membership relation. Operators may
+list/detail only Riders in their own Provider, and may assign only verified Riders
+and Orders whose deliveryProviderId matches that Provider. Null membership is not
+eligible. An Operator with no membership cannot invite or assign Riders. Invitation
+membership is captured server-side, never selected through a normal request body.
+Normal profile updates cannot change roles or provider membership. Existing Riders
+require controlled provisioning with independently verified exact IDs; never infer
+membership from historical assignments. A Rider's existing own-assignment access and
+approved transition rules remain unchanged. Workload describes tasks only and does
+not impose capacity, presence or shift rules. See docs/OPERATOR_RIDER_MANAGEMENT.md.
+
 The shared assignment schema and API contract require coordination with the Rider developer before implementation.
 
 ## 7. Authentication and Authorization Middleware

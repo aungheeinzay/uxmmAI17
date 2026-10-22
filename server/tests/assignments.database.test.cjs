@@ -12,15 +12,16 @@ test('assignment uniqueness, concurrency and delivery atomicity against dedicate
   const { prisma } = require('../dist/config/prisma');
   const service = require('../dist/modules/assignments/assignment.service');
   const repository = require('../dist/modules/assignments/assignment.repository');
-  const ids = { operator: randomUUID(), rider: randomUUID(), sme: randomUUID(), order: randomUUID() };
+  const ids = { operator: randomUUID(), rider: randomUUID(), sme: randomUUID(), order: randomUUID(), provider: randomUUID() };
   const operator = { id: ids.operator, role: 'OPERATOR' }, rider = { id: ids.rider, role: 'RIDER' };
   try {
+    await prisma.deliveryProvider.create({ data: { id: ids.provider, name: `Assignment fixture ${ids.provider}` } });
     // No migrations/reset/truncate: target must already have the reviewed migration applied.
-    await prisma.account.create({ data: { email: `assignment-${ids.rider}@example.test`, passwordHash: 'unusable-test-fixture', emailVerifiedAt: new Date(), profile: { create: { id: ids.rider, role: 'RIDER' } } } });
-    await prisma.profile.create({ data: { id: ids.operator, role: 'OPERATOR' } });
+    await prisma.account.create({ data: { email: `assignment-${ids.rider}@example.test`, passwordHash: 'unusable-test-fixture', emailVerifiedAt: new Date(), profile: { create: { id: ids.rider, role: 'RIDER', providerId: ids.provider } } } });
+    await prisma.profile.create({ data: { id: ids.operator, role: 'OPERATOR', providerId: ids.provider } });
     await prisma.profile.create({ data: { id: ids.sme, role: 'SME' } });
     await prisma.parcelOrder.create({ data: { id: ids.order, orderCode: `PO${ids.order.replaceAll('-', '').slice(0, 16)}`, qrIdentifier: ids.order.replaceAll('-', '').repeat(2), ownerId: ids.sme, operatorId: ids.operator,
-      recipientName: 'Fictional Test', phoneNumber: 'TEST-NOT-DIALABLE', township: 'Tamwe', deliveryAddress: 'Fictional test lane', senderName: 'Test Shop', parcelWeightKg: '1', codAmount: '0', status: 'PICKED_UP' } });
+      deliveryProviderId: ids.provider, recipientName: 'Fictional Test', phoneNumber: 'TEST-NOT-DIALABLE', township: 'Tamwe', deliveryAddress: 'Fictional test lane', senderName: 'Test Shop', parcelWeightKg: '1', codAmount: '0', status: 'PICKED_UP' } });
     const assignments = await Promise.allSettled([service.assignParcel(operator, { orderId: ids.order, riderId: ids.rider }), service.assignParcel(operator, { orderId: ids.order, riderId: ids.rider })]);
     assert.equal(assignments.filter(result => result.status === 'fulfilled').length, 1);
     assert.equal(assignments.find(result => result.status === 'rejected').reason.status, 409);
@@ -47,6 +48,7 @@ test('assignment uniqueness, concurrency and delivery atomicity against dedicate
     await prisma.parcelOrder.deleteMany({ where: { id: ids.order } });
     await prisma.account.deleteMany({ where: { id: ids.rider } });
     await prisma.profile.deleteMany({ where: { id: { in: [ids.operator, ids.rider, ids.sme] } } });
+    await prisma.deliveryProvider.deleteMany({ where: { id: ids.provider } });
     await prisma.$disconnect();
   }
 });

@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api-client";
 import { useAuthStore } from "@/stores/auth.store";
 import { operatorOrdersError } from "../api/operator-orders.api";
 
-export function useOperatorResource<T>(resourceKey: string, load: (key: string) => Promise<T>) {
+export function useOperatorResource<T>(resourceKey: string, load: (key: string) => Promise<T>, errorMessage: (error: unknown) => string = operatorOrdersError) {
   const userId = useAuthStore(state => state.user?.id);
   const role = useAuthStore(state => state.user?.role);
   const revision = useAuthStore(state => state.revision);
@@ -23,11 +23,11 @@ export function useOperatorResource<T>(resourceKey: string, load: (key: string) 
     let active = true;
     void load(resourceKey).then(data => { if (active) setResult({ key, scope, data }); }).catch((error: unknown) => {
       if (!active) return;
-      setResult({ key, scope, error: operatorOrdersError(error) });
+      setResult({ key, scope, error: errorMessage(error) });
       if (error instanceof ApiError && error.status === 401) useAuthStore.getState().clearUser();
     });
     return () => { active = false; };
-  }, [key, scope, resourceKey, userId, role, load]);
+  }, [key, scope, resourceKey, userId, role, load, errorMessage]);
   const current = result?.key === key && userId && role === "OPERATOR" ? result : null;
   return { data: current?.data, error: current?.error,
     isRefetching: !!userId && role === "OPERATOR" && !current && result?.scope === scope,

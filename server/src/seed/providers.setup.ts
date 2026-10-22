@@ -29,6 +29,13 @@ export async function seedProviders(db: Pick<PrismaClient, "deliveryProvider">, 
 }
 
 export async function assignProvider(db: Pick<PrismaClient, "$transaction">, operatorId: string, providerId: string) {
+  return assignMember(db, operatorId, providerId, "OPERATOR");
+}
+export async function assignRiderProvider(db: Pick<PrismaClient, "$transaction">, riderId: string, providerId: string) {
+  const { operatorId, ...result } = await assignMember(db, riderId, providerId, "RIDER");
+  return { riderId: operatorId, ...result };
+}
+async function assignMember(db: Pick<PrismaClient, "$transaction">, operatorId: string, providerId: string, role: "OPERATOR" | "RIDER") {
   if (!z.string().uuid().safeParse(operatorId).success || !z.string().uuid().safeParse(providerId).success) {
     throw new ProviderSetupError("Exact Operator and Provider UUIDs are required.");
   }
@@ -36,17 +43,17 @@ export async function assignProvider(db: Pick<PrismaClient, "$transaction">, ope
     const profile = await tx.profile.findUnique({ where: { id: operatorId }, select: {
       id: true, role: true, providerId: true, account: { select: { emailVerifiedAt: true } },
     } });
-    if (profile?.role !== "OPERATOR" || !profile.account?.emailVerifiedAt) {
-      throw new ProviderSetupError("An existing verified OPERATOR account/profile is required.");
+    if (profile?.role !== role || !profile.account?.emailVerifiedAt) {
+      throw new ProviderSetupError(`An existing verified ${role} account/profile is required.`);
     }
     const provider = await tx.deliveryProvider.findUnique({ where: { id: providerId }, select: { id: true, name: true } });
     if (!provider) throw new ProviderSetupError("The selected Provider does not exist.");
     if (profile.providerId !== null && profile.providerId !== providerId) {
-      throw new ProviderSetupError("Operator already belongs to another Provider; reassignment is refused.");
+      throw new ProviderSetupError(`${role} already belongs to another Provider; reassignment is refused.`);
     }
     let changed = false;
     if (profile.providerId === null) {
-      const result = await tx.profile.updateMany({ where: { id: operatorId, role: "OPERATOR", providerId: null }, data: { providerId } });
+      const result = await tx.profile.updateMany({ where: { id: operatorId, role, providerId: null }, data: { providerId } });
       if (result.count !== 1) throw new ProviderSetupError("Membership changed concurrently. Inspect it before retrying.");
       changed = true;
     }

@@ -10,6 +10,8 @@ names come from the relation, never an editable copy on the profile. No ADMIN ro
 Migration `20261022030000_operator_provider_membership` is applied on the configured development target.
 It adds nullable `profiles.provider_id`, a restrictive FK, an index, and a check
 restricting non-null membership to OPERATOR profiles. Existing profiles keep null.
+The subsequent `20261022040000_rider_provider_membership` migration extends this
+constraint to OPERATOR or RIDER; see OPERATOR_RIDER_MANAGEMENT.md for Rider setup.
 No backfill or implicit provider assignment is performed.
 
 **Historical file still missing:** the configured development database has an applied migration

@@ -13,6 +13,7 @@ export async function activateRider(token: string, password: string) {
 }
 export function riderErrorMessage(error: unknown, activating = false) {
  if (error instanceof ApiError) {
+  if (error.code === "PROVIDER_MEMBERSHIP_REQUIRED") return "Your delivery provider has not been configured.";
   if (error.code === "INVALID_INVITATION_TOKEN") return "This invitation is invalid, expired, or already used. Ask your Operator for a new invitation.";
   if (error.status === 401) return "Your session has expired. Sign in again.";
   if (error.status === 403) return "Only Operators can invite Riders. Sign in with an Operator account.";

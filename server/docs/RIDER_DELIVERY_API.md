@@ -1,5 +1,9 @@
 # Rider delivery and Operator assignment API — Phase 3A
 
+> The current Rider list and provider-scoping contracts are defined in
+> [OPERATOR_RIDER_MANAGEMENT.md](OPERATOR_RIDER_MANAGEMENT.md). The historical
+> global Operator scope and Rider-list DTO in the Phase 3A notes below are superseded.
+
 Implemented 2026-10-21; integrated with the frontend in Phase 3B. Swagger UI: `/api/docs`; JSON: `/api/docs.json`. Docs must be enabled by server configuration. Express uses the existing opaque Bearer authentication; the browser uses the approved HttpOnly-cookie BFF routes listed in the Phase 3B notes below.
 
 ## Workflow and model
@@ -67,7 +71,7 @@ Example 201 response (fictional values; exact implemented field names):
 
 The Operator list wraps these objects in `data.assignments`. Eligible Rider objects have only `id`, nullable `fullName`, nullable `phone`, with pagination alongside `data.riders`. Recipient fields are included in assignment results; no account credentials, email, or session information is selected.
 
-Assignment requires an SME-owned PICKED_UP order and an eligible Rider. Actor identity always comes from the authenticated session. Sending assignedById, actorId, role, ownership fields, or a status is invalid. Assignment creates no status event and leaves order status unchanged. The current approved backend has a single delivery operation; Operators can view/assign eligible SME-owned parcels across that operation, matching the receiving/list scope.
+Assignment requires an SME-owned PICKED_UP order and an eligible Rider. Actor identity always comes from the authenticated session. Sending assignedById, actorId, role, ownership fields, or a status is invalid. Assignment creates no status event and leaves order status unchanged. Operator, Rider and Order must share the Operator's persisted Provider. Operator assignment reads are similarly scoped; general receiving/list scope is otherwise unchanged.
 
 ## Rider frontend integration
 

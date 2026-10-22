@@ -32,6 +32,7 @@ export function deliveriesSession(request: NextRequest, operation: Operation) {
       const parsed = deliveryQuerySchema.safeParse(body);
       if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
       path = `${operation === "riders" ? "/api/operator/riders" : rider ? "/api/rider/assignments" : "/api/operator/assignments"}?page=${parsed.data.page}&pageSize=${parsed.data.pageSize}`;
+      if (operation === "riders") path += "&eligible=true";
     }
     const result = z.object({ success: z.literal(true), data: responseSchema }).safeParse(await expressAuth(path, input, accessToken, method));
     if (!result.success) throw new SessionError(502, "INVALID_RESPONSE");

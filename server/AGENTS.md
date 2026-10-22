@@ -7,4 +7,4 @@ Before any work in this directory:
 2. Read and follow `./PERMISSIONS.md` for all
    role-based authorization and delivery workflows.
 
-Both documents are mandatory when relevant.
+Both documents are mandatory when relevant..

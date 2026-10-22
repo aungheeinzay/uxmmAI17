@@ -21,6 +21,7 @@ test('rider invitations and concurrent activation against PostgreSQL', { skip: !
   const auth = require('../dist/modules/auth/auth.service');
   const { hashPassword, verifyPassword } = require('../dist/modules/auth/auth.password');
   const prefix = `rider-test-${randomUUID()}-`;
+  const providerId = randomUUID();
   const address = name => `${prefix}${name.toLowerCase()}@example.test`;
   const digest = token => createHash('sha256').update(token).digest('hex');
   const tokenFrom = message => {
@@ -36,10 +37,11 @@ test('rider invitations and concurrent activation against PostgreSQL', { skip: !
     const id = randomUUID();
     return prisma.account.create({ data: {
       email: address(name), passwordHash, emailVerifiedAt: new Date(),
-      profile: { create: { id, role } },
+      profile: { create: { id, role, providerId: role === 'OPERATOR' ? providerId : null } },
     }, include: { profile: true } });
   }
   try {
+    await prisma.deliveryProvider.create({ data: { id: providerId, name: `Invitation fixture ${providerId}` } });
     const operator = await createAccount('operator', 'OPERATOR');
     const actor = { id: operator.id, role: 'OPERATOR' };
     await t.test('pending invitation is persisted as a hash, with no active account', async () => {
@@ -106,9 +108,9 @@ test('rider invitations and concurrent activation against PostgreSQL', { skip: !
       assert.equal((await prisma.riderInvitation.findUnique({ where: { email: account.email } })).acceptedAt, null, 'claim rolled back');
     });
     await t.test('current operator role is checked and failed email revokes only its token', async () => {
-      await prisma.profile.update({ where: { id: operator.id }, data: { role: 'SME' } });
+      await prisma.profile.update({ where: { id: operator.id }, data: { role: 'SME', providerId: null } });
       await rejectsCode(() => service.inviteRider(actor, { email: address('forbidden') }), 'FORBIDDEN');
-      await prisma.profile.update({ where: { id: operator.id }, data: { role: 'OPERATOR' } });
+      await prisma.profile.update({ where: { id: operator.id }, data: { role: 'OPERATOR', providerId } });
       failEmail = true;
       await rejectsCode(() => service.inviteRider(actor, { email: address('delivery') }), 'EMAIL_DELIVERY_FAILED');
       failEmail = false;
@@ -123,6 +125,7 @@ test('rider invitations and concurrent activation against PostgreSQL', { skip: !
     await prisma.riderInvitation.deleteMany({ where: { email: { startsWith: prefix } } });
     const accounts = await prisma.account.findMany({ where: { email: { startsWith: prefix } }, select: { id: true } });
     await prisma.profile.deleteMany({ where: { id: { in: accounts.map(a => a.id) } } });
+    await prisma.deliveryProvider.deleteMany({ where: { id: providerId } });
     await prisma.$disconnect();
   }
 });
