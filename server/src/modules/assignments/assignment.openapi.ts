@@ -8,10 +8,12 @@ const text = { type: "string" };
 const person = { type: "object", required: ["id", "fullName", "phone"], properties: {
   id: uuid, fullName: { ...text, nullable: true }, phone: { ...text, nullable: true },
 } };
-const order = { type: "object", required: [...pricingRequired, "id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "codAmount", "currency", "status", "hasIncident"], properties: {
+const order = { type: "object", required: [...pricingRequired, "id", "orderCode", "recipientName", "phoneNumber", "deliveryAddress", "township", "deliveryInstructions", "parcelWeight", "parcelWeightUnit", "codAmount", "currency", "status", "hasIncident"], properties: {
   ...pricingFields,
   id: uuid, orderCode: text, recipientName: text, phoneNumber: text, deliveryAddress: text,
-  township: text, deliveryInstructions: { ...text, nullable: true }, codAmount: { ...text, description: "Exact decimal string" }, currency: text,
+  township: text, deliveryInstructions: { ...text, nullable: true },
+  parcelWeight: { ...text, description: "Decimal kilograms" }, parcelWeightUnit: { type: "string", enum: ["kg"] },
+  codAmount: { ...text, description: "Exact decimal string" }, currency: text,
   status: { type: "string", enum: Object.values(OrderStatus) },
   hasIncident: { type: "boolean", description: "Derived from persisted Rider incident records; true when the parcel has at least one report." },
 } };
@@ -45,6 +47,19 @@ export const assignmentSchemas = {
   AssignmentList: { type: "object", required: ["assignments", "pagination"], properties: {
     assignments: { type: "array", items: ref("RiderAssignment") }, pagination,
   } },
+  RiderAssignmentCounts: { type: "object", required: ["active", "completed"], properties: {
+    active: { type: "object", required: ["all", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"], properties: {
+      all: { type: "integer", minimum: 0 }, PICKED_UP: { type: "integer", minimum: 0 },
+      IN_TRANSIT: { type: "integer", minimum: 0 }, OUT_FOR_DELIVERY: { type: "integer", minimum: 0 },
+    } },
+    completed: { type: "object", required: ["all", "DELIVERED", "FAILED", "CANCELLED"], properties: {
+      all: { type: "integer", minimum: 0 }, DELIVERED: { type: "integer", minimum: 0 },
+      FAILED: { type: "integer", minimum: 0 }, CANCELLED: { type: "integer", minimum: 0 },
+    } },
+  }, description: "Counts across the authenticated Rider's full assignment set. Independent of group, status and pagination." },
+  RiderAssignmentList: { type: "object", required: ["assignments", "pagination", "counts"], properties: {
+    assignments: { type: "array", items: ref("RiderAssignment") }, pagination, counts: ref("RiderAssignmentCounts"),
+  } },
 };
 const errors = errorResponses([400, 401, 403, 404, 409, 500], {
   403: ["FORBIDDEN", "Insufficient permissions."],
@@ -68,6 +83,11 @@ function riderErrorResponses(statuses: number[], overrides: Record<number, [stri
   return { ...errorResponses(statuses.filter(status => status !== 403), overrides), 403: riderForbidden };
 }
 const query = Object.entries(inputSchema(assignmentQuerySchema).properties!).map(([name, schema]) => ({ in: "query", name, required: false, schema }));
+const riderQuery = [
+  ...query,
+  { in: "query", name: "group", required: false, schema: { type: "string", enum: ["active", "completed"], description: "active = PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY; completed = DELIVERED, FAILED, CANCELLED. Omit for all assigned statuses." } },
+  { in: "query", name: "status", required: false, schema: { type: "string", enum: Object.values(OrderStatus), description: "Optional exact status. When group is supplied the status must belong to that group." } },
+];
 const idParameter = [{ in: "path", name: "id", required: true, schema: uuid }];
 const operator = { tags: ["Operator"], security: bearerSecurity };
 const rider = { tags: ["Rider Deliveries"], security: bearerSecurity };
@@ -88,8 +108,8 @@ export const assignmentPaths = {
     },
   },
   "/api/rider/assignments": { get: { ...rider, operationId: "riderAssignments", summary: "List my assignments (RIDER only)",
-    description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE, and a missing membership returns 403 RIDER_PROVIDER_MEMBERSHIP_REQUIRED. Filters by authenticated Rider ID at the database boundary. riderId query overrides are rejected. Includes recipient contact/address and exact COD strings for assigned deliveries only; all statuses including completed tasks. Newest assignedAt then id first.", parameters: query,
-    responses: { ...riderErrorResponses([400, 401, 500]), 200: response("Own paginated assignments", successSchema(ref("AssignmentList"))) },
+    description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE, and a missing membership returns 403 RIDER_PROVIDER_MEMBERSHIP_REQUIRED. Filters by authenticated Rider ID at the database boundary. riderId query overrides are rejected. Optional group=active|completed selects the dashboard tab; optional status selects one status and must belong to group when both are supplied. Counts always cover the full authenticated Rider assignment set across both groups and are independent of pagination and filters. Includes recipient contact/address, destination city, parcel weight and exact COD strings for assigned deliveries only. Newest assignedAt then id first.", parameters: riderQuery,
+    responses: { ...riderErrorResponses([400, 401, 500]), 200: response("Own paginated assignments with full-dataset counts", successSchema(ref("RiderAssignmentList"))) },
   } },
   "/api/rider/assignments/{id}": { get: { ...rider, operationId: "riderAssignmentDetail", summary: "View my assignment (RIDER only)",
     description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE. Missing and other Riders' assignments both return 404. Includes current order status and oldest-first status history with safe actor identity fields.", parameters: idParameter,

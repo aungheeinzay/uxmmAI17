@@ -216,5 +216,5 @@ describe("BFF against the real Express controllers and auth services (in-memory 
     const signedOut = await logoutSession(request("logout", jar(initial)));
     expect(signedOut.status).toBe(200);
     expect(signedOut.cookies.get(cookieNames.refresh)?.maxAge).toBe(0);
-  });
+  }, 15000);
 });

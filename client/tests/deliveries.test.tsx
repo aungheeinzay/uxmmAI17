@@ -9,7 +9,7 @@ import { assignParcel } from "@/features/deliveries/api/deliveries.api";
 import { deliveryStatusSchema } from "@/features/deliveries/types/delivery.types";
 import { useAuthStore } from "@/stores/auth.store";
 import { parcel, parcelList, operatorUser } from "./fixtures/operator-orders";
-import { assignment, assignments, riderUser } from "./fixtures/deliveries";
+import { assignment, assignments, emptyAssignmentCounts, riderUser } from "./fixtures/deliveries";
 const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 const ok = (data: unknown) => reply({ success: true, data });
 beforeEach(() => { useAuthStore.getState().setUser(riderUser); vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => ok(assignments))); });
@@ -121,7 +121,7 @@ it("refreshes on 409 and preserves feedback", async () => {
   expect((await screen.findByRole("alert")).textContent).toContain("status changed");
 });
 it("supports empty pages and validates failure payloads", async () => {
-  vi.mocked(fetch).mockImplementation(async () => ok({ assignments: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } }));
+  vi.mocked(fetch).mockImplementation(async () => ok({ assignments: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 }, counts: emptyAssignmentCounts }));
   render(<AssignmentList />); await screen.findByText("No assigned deliveries found.");
   expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
   expect(deliveryStatusSchema.safeParse({ status: "FAILED", note: "  " }).success).toBe(false);

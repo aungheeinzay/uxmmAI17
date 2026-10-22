@@ -7,7 +7,7 @@ vi.mock("@/features/auth/server/express-auth", async original => ({ ...await ori
 import { deliveriesSession } from "@/features/deliveries/server/deliveries.session";
 import { SessionError } from "@/features/auth/server/express-auth";
 import { operatorUser } from "./fixtures/operator-orders";
-import { assignment, riderUser } from "./fixtures/deliveries";
+import { assignment, assignments, riderUser } from "./fixtures/deliveries";
 const token = "a".repeat(43);
 function request(body: unknown = {}, cookies = `parcelops_access=${token}`, origin = "http://localhost:3000") {
   return new NextRequest("http://localhost:3000/api/session/operator/assignments", { method: "POST", headers: { Cookie: cookies, Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -34,11 +34,24 @@ it("requires cookies, same origin, strict pagination and identity-free inputs", 
 });
 it("uses authenticated Rider scope and rejects unsafe/foreign backend responses", async () => {
   currentProfile.mockResolvedValue(riderUser);
-  expressAuth.mockResolvedValue({ success: true, data: { assignments: [assignment], pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 } } });
+  expressAuth.mockResolvedValue({ success: true, data: assignments });
   expect((await deliveriesSession(request({ page: 1, pageSize: 20 }), "riderList")).status).toBe(200);
   expect(expressAuth).toHaveBeenCalledWith("/api/rider/assignments?page=1&pageSize=20", undefined, token, undefined);
   expressAuth.mockResolvedValue({ success: true, data: { ...assignment, riderId: operatorUser.id } });
   expect((await deliveriesSession(request({ id: assignment.id }), "detail")).status).toBe(502);
+});
+it("forwards Rider group/status filters without accepting client identity", async () => {
+  currentProfile.mockResolvedValue(riderUser);
+  expressAuth.mockResolvedValue({ success: true, data: assignments });
+  expect((await deliveriesSession(request({ page: 1, pageSize: 20, group: "completed" }), "riderList")).status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith("/api/rider/assignments?page=1&pageSize=20&group=completed", undefined, token, undefined);
+  expressAuth.mockClear();
+  expect((await deliveriesSession(request({ page: 1, pageSize: 20, group: "active", status: "IN_TRANSIT" }), "riderList")).status).toBe(200);
+  expect(expressAuth).toHaveBeenCalledWith("/api/rider/assignments?page=1&pageSize=20&group=active&status=IN_TRANSIT", undefined, token, undefined);
+  for (const body of [
+    { group: "active", status: "DELIVERED" }, { group: "completed", status: "PICKED_UP" },
+    { group: "other" }, { status: "UNKNOWN" }, { riderId: riderUser.id },
+  ]) expect((await deliveriesSession(request(body), "riderList")).status).toBe(400);
 });
 it("forwards status PATCH and strips unexpected secret fields", async () => {
   currentProfile.mockResolvedValue(riderUser);

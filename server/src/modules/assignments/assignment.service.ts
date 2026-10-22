@@ -3,7 +3,7 @@ import { AppError } from "../../lib/errors/app-error";
 import { serializePricing } from "../providers/order-pricing";
 import { isTransactionConflict } from "../../lib/errors/transaction-conflict";
 import * as repository from "./assignment.repository";
-import type { AssignmentQuery, CreateAssignmentInput, DeliveryStatusInput } from "./assignment.validation";
+import type { AssignmentQuery, CreateAssignmentInput, DeliveryStatusInput, RiderAssignmentQuery } from "./assignment.validation";
 
 type Actor = { id: string; role: Role };
 function requireRole(actor: Actor, role: Role) {
@@ -14,11 +14,33 @@ const transitionConflict = () => new AppError(409, "STATUS_TRANSITION_NOT_ALLOWE
 function code(error: unknown) { return typeof error === "object" && error !== null && "code" in error ? error.code : undefined; }
 type AssignmentRow = Awaited<ReturnType<typeof repository.insertAssignment>>;
 function serialize<T extends AssignmentRow>(row: T) {
-  const { incidents, ...order } = row.order;
-  return { ...row, order: { ...order, ...serializePricing(row.order), codAmount: row.order.codAmount.toString(), hasIncident: (incidents?.length ?? 0) > 0 } };
+  const { incidents, parcelWeightKg, ...order } = row.order;
+  return { ...row, order: { ...order, ...serializePricing(row.order), codAmount: row.order.codAmount.toString(),
+    parcelWeight: parcelWeightKg.toString(), parcelWeightUnit: "kg" as const, hasIncident: (incidents?.length ?? 0) > 0 } };
 }
 function pagination(query: AssignmentQuery, total: number) {
   return { ...query, total, totalPages: Math.ceil(total / query.pageSize) };
+}
+export type RiderAssignmentCounts = {
+  active: { all: number; PICKED_UP: number; IN_TRANSIT: number; OUT_FOR_DELIVERY: number };
+  completed: { all: number; DELIVERED: number; FAILED: number; CANCELLED: number };
+};
+function riderCounts(rows: { status: OrderStatus; _count?: unknown }[]): RiderAssignmentCounts {
+  const counts: RiderAssignmentCounts = {
+    active: { all: 0, PICKED_UP: 0, IN_TRANSIT: 0, OUT_FOR_DELIVERY: 0 },
+    completed: { all: 0, DELIVERED: 0, FAILED: 0, CANCELLED: 0 },
+  };
+  for (const row of rows) {
+    const count = row._count && typeof row._count === "object" && "_all" in row._count && typeof row._count._all === "number" ? row._count._all : 0;
+    if (row.status === "PICKED_UP" || row.status === "IN_TRANSIT" || row.status === "OUT_FOR_DELIVERY") {
+      counts.active.all += count;
+      counts.active[row.status] += count;
+    } else if (row.status === "DELIVERED" || row.status === "FAILED" || row.status === "CANCELLED") {
+      counts.completed.all += count;
+      counts.completed[row.status] += count;
+    }
+  }
+  return counts;
 }
 async function providerScope(tx: Parameters<typeof repository.findOperatorMembership>[0], actor: Actor) {
   const member = await repository.findOperatorMembership(tx, actor.id);
@@ -59,10 +81,10 @@ export async function operatorAssignments(actor: Actor, query: AssignmentQuery) 
     return { assignments: rows.map(serialize), pagination: pagination(query, total) };
   });
 }
-export async function riderAssignments(actor: Actor, query: AssignmentQuery) {
+export async function riderAssignments(actor: Actor, query: RiderAssignmentQuery) {
   requireRole(actor, "RIDER");
-  const [rows, total] = await repository.listAssignments(query, actor.id);
-  return { assignments: rows.map(serialize), pagination: pagination(query, total) };
+  const [rows, total, counts] = await repository.listRiderAssignments(query, actor.id);
+  return { assignments: rows.map(serialize), pagination: pagination(query, total), counts: riderCounts(counts) };
 }
 export async function riderAssignment(actor: Actor, id: string) {
   requireRole(actor, "RIDER");

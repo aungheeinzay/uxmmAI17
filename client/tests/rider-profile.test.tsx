@@ -134,7 +134,15 @@ it("renders real active and completed deliveries with an honest QR entry point",
   done.order.orderCode = "ORD-COMPLETE-1";
   done.order.recipientName = "Completed Recipient";
   done.order.status = "DELIVERED";
-  vi.mocked(fetch).mockResolvedValue(ok({ assignments: [active, done], pagination: { page: 1, pageSize: 100, total: 2, totalPages: 1 } }));
+  const counts = {
+    active: { all: 1, PICKED_UP: 1, IN_TRANSIT: 0, OUT_FOR_DELIVERY: 0 },
+    completed: { all: 1, DELIVERED: 1, FAILED: 0, CANCELLED: 0 },
+  };
+  vi.mocked(fetch).mockImplementation(async (_input, init) => {
+    const body = JSON.parse(init!.body as string) as { group?: string };
+    const assignments = body.group === "completed" ? [done] : [active];
+    return ok({ assignments, pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 }, counts });
+  });
   render(<RiderDashboard />);
   const user = userEvent.setup();
   expect(await screen.findByText("Active Recipient")).toBeTruthy();

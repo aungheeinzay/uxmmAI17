@@ -57,6 +57,7 @@ prisma.$transaction = async work => {
 };
 prisma.riderAssignment.findMany = async () => [];
 prisma.riderAssignment.count = async () => 0;
+prisma.parcelOrder.groupBy = async () => [];
 
 beforeEach(fresh);
 const { app } = require('../dist/app');

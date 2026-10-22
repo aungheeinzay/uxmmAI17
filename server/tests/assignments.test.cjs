@@ -20,11 +20,13 @@ auth.findSession = async hash => {
 let state, queue, failEvent, failRead, failConditional, txError, uniqueError, transactionOptions, calls;
 const person = id => ({ id, fullName: 'Fictional Test', phone: null });
 ids.provider = randomUUID();
-function fresh() { return { providerId: ids.provider, riderProvider: ids.provider, order: { id: ids.order, deliveryProviderId: ids.provider, status: 'PICKED_UP', ownerRole: 'SME' }, assignment: null, events: [], eligible: true }; }
+function fresh() { return { providerId: ids.provider, riderProvider: ids.provider, order: { id: ids.order, deliveryProviderId: ids.provider, status: 'PICKED_UP', ownerRole: 'SME' }, assignment: null, extraStatuses: [], events: [], eligible: true }; }
 function assignmentRow(db, detail = false) {
   if (!db.assignment) return null;
-  const order = { id: ids.order, orderCode: 'PODEAD000000000001', recipientName: 'Fictional Recipient', phoneNumber: 'TEST-NOT-DIALABLE',
-    township: 'Tamwe', deliveryAddress: 'Fictional address', deliveryInstructions: null, codAmount: new Prisma.Decimal('25000.50'), currency: 'MMK', status: db.order.status };
+  const order = { id: ids.order, deliveryProviderId: db.order.deliveryProviderId, destinationCity: 'Yangon', deliveryFee: new Prisma.Decimal('1500.00'),
+    deliveryProvider: { id: db.order.deliveryProviderId, name: 'Fictional Provider' }, orderCode: 'PODEAD000000000001', recipientName: 'Fictional Recipient', phoneNumber: 'TEST-NOT-DIALABLE',
+    township: 'Tamwe', deliveryAddress: 'Fictional address', deliveryInstructions: null, parcelWeightKg: new Prisma.Decimal('1.250'),
+    codAmount: new Prisma.Decimal('25000.50'), currency: 'MMK', status: db.order.status };
   if (detail) order.statusEvents = db.events.map(event => ({ ...event, actor: { id: event.actorId, fullName: 'Fictional Rider' } }));
   return { ...db.assignment, rider: person(db.assignment.riderId), assignedBy: person(ids.operator), order };
 }
@@ -79,11 +81,35 @@ prisma.$transaction = async (work, options) => {
   } finally { unlock(); }
 };
 prisma.riderAssignment.findFirst = async args => client(state).riderAssignment.findFirst(args);
+function riderRows() {
+  if (!state.assignment) return [];
+  const base = assignmentRow(state);
+  return [base, ...state.extraStatuses.map(status => ({
+    ...base,
+    id: randomUUID(),
+    order: { ...base.order, id: randomUUID(), status },
+  }))];
+}
+function filteredRiderRows(args) {
+  const statuses = args.where?.order?.status?.in;
+  return riderRows().filter(row => row.riderId === args.where.riderId && (!statuses || statuses.includes(row.order.status)));
+}
 prisma.riderAssignment.findMany = async args => {
   calls.push(args);
-  return state.assignment && (!args.where.riderId || args.where.riderId === state.assignment.riderId) ? [assignmentRow(state)] : [];
+  const rows = filteredRiderRows(args);
+  return rows.slice(args.skip ?? 0, (args.skip ?? 0) + (args.take ?? rows.length));
 };
-prisma.riderAssignment.count = async args => state.assignment && (!args.where.riderId || args.where.riderId === state.assignment.riderId) ? 1 : 0;
+prisma.riderAssignment.count = async args => filteredRiderRows(args).length;
+prisma.parcelOrder.groupBy = async args => {
+  calls.push(args);
+  const riderId = args.where?.assignment?.is?.riderId;
+  const counts = new Map();
+  for (const row of riderRows()) {
+    if (riderId && row.riderId !== riderId) continue;
+    counts.set(row.order.status, (counts.get(row.order.status) ?? 0) + 1);
+  }
+  return [...counts].map(([status, count]) => ({ status, _count: { _all: count } }));
+};
 prisma.profile.findMany = async args => { calls.push(args); return state.eligible ? [person(ids.rider)] : []; };
 prisma.profile.count = async () => state.eligible ? 1 : 0;
 // Completion guard reads persisted Rider identity/vehicle/provider data.
@@ -184,6 +210,60 @@ test('operator list paginates and rider list scopes to authenticated identity', 
   assert.ok(calls.some(call => call.where?.riderId === ids.rider));
   assert.doesNotMatch(JSON.stringify(own.body), /password|token|email|sessions/);
 });
+test('rider tabs filter with full-dataset counts independent of group, status and pagination', async () => {
+  await assign();
+  state.extraStatuses = ['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED', 'CREATED'];
+  const fullCounts = {
+    active: { all: 3, PICKED_UP: 1, IN_TRANSIT: 1, OUT_FOR_DELIVERY: 1 },
+    completed: { all: 3, DELIVERED: 1, FAILED: 1, CANCELLED: 1 },
+  };
+  const active = await request('/api/rider/assignments?group=active', 'RIDER');
+  assert.equal(active.status, 200);
+  assert.equal(active.body.data.assignments.length, 3);
+  assert.ok(active.body.data.assignments.every(row => ['PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(row.order.status)));
+  assert.deepEqual(active.body.data.counts, fullCounts);
+  assert.equal(active.body.data.assignments[0].order.destinationCity, 'Yangon');
+  assert.equal(active.body.data.assignments[0].order.parcelWeight, '1.25');
+  assert.equal(active.body.data.assignments[0].order.parcelWeightUnit, 'kg');
+  const completed = await request('/api/rider/assignments?group=completed&page=1&pageSize=2', 'RIDER');
+  assert.equal(completed.body.data.assignments.length, 2);
+  assert.equal(completed.body.data.pagination.total, 3);
+  assert.equal(completed.body.data.pagination.totalPages, 2);
+  assert.ok(completed.body.data.assignments.every(row => ['DELIVERED', 'FAILED', 'CANCELLED'].includes(row.order.status)));
+  assert.deepEqual(completed.body.data.counts, fullCounts);
+  const filtered = await request('/api/rider/assignments?group=active&status=IN_TRANSIT', 'RIDER');
+  assert.equal(filtered.body.data.assignments.length, 1);
+  assert.equal(filtered.body.data.assignments[0].order.status, 'IN_TRANSIT');
+  assert.equal(filtered.body.data.pagination.total, 1);
+  assert.deepEqual(filtered.body.data.counts, fullCounts);
+  const statusOnly = await request('/api/rider/assignments?status=DELIVERED', 'RIDER');
+  assert.equal(statusOnly.body.data.assignments.length, 1);
+  assert.deepEqual(statusOnly.body.data.counts, fullCounts);
+  const created = await request('/api/rider/assignments?status=CREATED', 'RIDER');
+  assert.equal(created.body.data.assignments.length, 1);
+  assert.deepEqual(created.body.data.counts, fullCounts);
+  const other = await request('/api/rider/assignments?group=active', 'OTHER');
+  assert.deepEqual(other.body.data.assignments, []);
+  assert.deepEqual(other.body.data.counts, {
+    active: { all: 0, PICKED_UP: 0, IN_TRANSIT: 0, OUT_FOR_DELIVERY: 0 },
+    completed: { all: 0, DELIVERED: 0, FAILED: 0, CANCELLED: 0 },
+  });
+  const countCall = calls.find(call => call.by?.includes('status'));
+  assert.deepEqual(countCall.where, { assignment: { is: { riderId: ids.rider } } });
+  assert.equal(countCall.orderBy.status, 'asc');
+});
+test('rider group and status query validation rejects invalid combinations before database access', async () => {
+  const before = calls.length;
+  for (const query of [
+    'group=active&status=DELIVERED',
+    'group=completed&status=PICKED_UP',
+    'group=active&status=CREATED',
+    'group=unknown',
+    'status=UNKNOWN',
+    `group=active&status=IN_TRANSIT&riderId=${ids.other}`,
+  ]) assert.equal((await request(`/api/rider/assignments?${query}`, 'RIDER')).status, 400, query);
+  assert.equal(calls.length, before);
+});
 test('detail and status mutations hide missing/other-rider assignment existence', async () => {
   await assign();
   assert.equal((await request(`/api/rider/assignments/${ids.assignment}`, 'RIDER')).status, 200);
@@ -259,5 +339,14 @@ test('Swagger exposes all six paths, exact roles, schemas, and transition errors
   assert.ok(spec.paths['/api/rider/assignments/{id}/status'].patch.responses[409]);
   assert.equal(spec.components.schemas.CreateAssignmentInput.additionalProperties, false);
   assert.ok(spec.components.schemas.OperatorOrderDetail.allOf[1].properties.assignment);
+  const riderList = spec.paths['/api/rider/assignments'].get;
+  const groupParameter = riderList.parameters.find(parameter => parameter.name === 'group');
+  const statusParameter = riderList.parameters.find(parameter => parameter.name === 'status');
+  assert.deepEqual(groupParameter.schema.enum, ['active', 'completed']);
+  assert.ok(statusParameter.schema.enum.includes('DELIVERED'));
+  assert.ok(spec.components.schemas.RiderAssignmentList.required.includes('counts'));
+  assert.ok(spec.components.schemas.AssignmentOrder.required.includes('destinationCity'));
+  assert.ok(spec.components.schemas.AssignmentOrder.required.includes('parcelWeight'));
+  assert.ok(spec.components.schemas.AssignmentOrder.required.includes('parcelWeightUnit'));
   assert.equal(deliveryStatusSchema.safeParse({ status: 'FAILED', note: '  ' }).success, false);
 });

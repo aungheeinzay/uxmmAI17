@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import { pricingSelect } from "../providers/order-pricing";
 import { Prisma } from "../../generated/prisma/client";
 import type { OrderStatus } from "../../generated/prisma/enums";
-import type { AssignmentQuery } from "./assignment.validation";
+import { activeAssignmentStatuses, completedAssignmentStatuses, type AssignmentQuery, type RiderAssignmentQuery } from "./assignment.validation";
 
 type Transaction = Prisma.TransactionClient;
 const personSelect = { id: true, fullName: true, phone: true } as const;
@@ -10,7 +10,7 @@ const orderSelect = {
   ...pricingSelect,
   id: true, orderCode: true, recipientName: true, phoneNumber: true,
   deliveryAddress: true, township: true, deliveryInstructions: true,
-  codAmount: true, currency: true, status: true,
+  parcelWeightKg: true, codAmount: true, currency: true, status: true,
   // hasIncident is derived from persisted records, never a mutable flag.
   incidents: { select: { id: true }, take: 1 },
 } as const;
@@ -54,11 +54,27 @@ export async function changeStatus(tx: Transaction, input: { id: string; orderId
   } });
   return true;
 }
-export function listAssignments(query: AssignmentQuery, riderId?: string) {
-  const where = riderId ? { riderId } : {};
+export function listRiderAssignments(query: RiderAssignmentQuery, riderId: string) {
+  const statuses: OrderStatus[] | undefined = query.status
+    ? [query.status]
+    : query.group === "active" ? [...activeAssignmentStatuses]
+    : query.group === "completed" ? [...completedAssignmentStatuses]
+    : undefined;
+  const where: Prisma.RiderAssignmentWhereInput = {
+    riderId,
+    ...(statuses ? { order: { status: { in: statuses } } } : {}),
+  };
   return prisma.$transaction([
     prisma.riderAssignment.findMany({ where, select: assignmentSelect, orderBy: [{ assignedAt: "desc" }, { id: "desc" }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
     prisma.riderAssignment.count({ where }),
+    // Counts are intentionally scoped to the authenticated Rider's full
+    // assignment set, independent of the active tab, filter and page.
+    prisma.parcelOrder.groupBy({
+      by: ["status"],
+      where: { assignment: { is: { riderId } } },
+      orderBy: { status: "asc" },
+      _count: { _all: true },
+    }),
   ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 export function listEligibleRiders(tx: Transaction, query: AssignmentQuery, providerId: string) {

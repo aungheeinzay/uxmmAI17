@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { NextRequest } from "next/server";
 import { withAuthenticatedSession } from "@/features/auth/server/session";
 import { expressAuth, SessionError } from "@/features/auth/server/express-auth";
-import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, statusRequestSchema } from "../types/delivery.types";
+import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, riderAssignmentListSchema, riderDeliveryQuerySchema, statusRequestSchema } from "../types/delivery.types";
 type Operation = "riders" | "operatorList" | "create" | "riderList" | "detail" | "status";
 export function deliveriesSession(request: NextRequest, operation: Operation) {
   return withAuthenticatedSession(request, async ({ user, accessToken }) => {
@@ -15,7 +15,8 @@ export function deliveriesSession(request: NextRequest, operation: Operation) {
     try { body = JSON.parse(text); } catch { throw new SessionError(400, "VALIDATION_ERROR"); }
     let path: string, input: unknown = undefined, method: "PATCH" | undefined;
     const responseSchema = operation === "riders" ? eligibleRidersSchema : operation === "create" ? assignmentSchema
-      : operation === "detail" ? assignmentDetailSchema : operation === "status" ? assignmentDetailSchema.extend({ previousStatus: z.string() }) : assignmentListSchema;
+      : operation === "detail" ? assignmentDetailSchema : operation === "status" ? assignmentDetailSchema.extend({ previousStatus: z.string() })
+      : operation === "riderList" ? riderAssignmentListSchema : assignmentListSchema;
     if (operation === "create") {
       const parsed = createAssignmentSchema.safeParse(body);
       if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
@@ -28,10 +29,17 @@ export function deliveriesSession(request: NextRequest, operation: Operation) {
         const status = statusRequestSchema.parse(body);
         input = { status: status.status, ...(status.note ? { note: status.note } : {}) }; method = "PATCH";
       }
+    } else if (operation === "riderList") {
+      const parsed = riderDeliveryQuerySchema.safeParse(body);
+      if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
+      const params = new URLSearchParams({ page: String(parsed.data.page), pageSize: String(parsed.data.pageSize) });
+      if (parsed.data.group) params.set("group", parsed.data.group);
+      if (parsed.data.status) params.set("status", parsed.data.status);
+      path = `/api/rider/assignments?${params}`;
     } else {
       const parsed = deliveryQuerySchema.safeParse(body);
       if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
-      path = `${operation === "riders" ? "/api/operator/riders" : rider ? "/api/rider/assignments" : "/api/operator/assignments"}?page=${parsed.data.page}&pageSize=${parsed.data.pageSize}`;
+      path = `${operation === "riders" ? "/api/operator/riders" : "/api/operator/assignments"}?page=${parsed.data.page}&pageSize=${parsed.data.pageSize}`;
       if (operation === "riders") path += "&eligible=true";
     }
     const result = z.object({ success: z.literal(true), data: responseSchema }).safeParse(await expressAuth(path, input, accessToken, method));
