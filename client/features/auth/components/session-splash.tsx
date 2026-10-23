@@ -17,9 +17,9 @@ export function SessionSplash() {
         className="pointer-events-none absolute -bottom-32 -left-24 size-80 rounded-full bg-[#3D51A3]/20 blur-3xl"
       />
 
-      <div className="relative flex items-center rounded-2xl bg-white px-6 py-3 shadow-[0_16px_40px_rgba(9,20,45,0.35)]">
+      <div className="relative flex items-center rounded-2xl px-6 py-3 shadow-[0_16px_40px_rgba(9,20,45,0.35)]">
         <Image
-          src="/images/logo.png"
+          src="/images/logo_white.png"
           alt="SURFERTrack"
           width={1041}
           height={240}
