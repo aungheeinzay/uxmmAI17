@@ -3,6 +3,7 @@ import { Package, Check } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegisterForm } from "@/features/auth/components/register-form";
 import { BrandWordmark } from "@/components/shared/brand-wordmark";
+import Image from "next/image";
 
 export const metadata: Metadata = {
   title: "Create your account | SURFERTrack",
@@ -14,7 +15,14 @@ export default function RegisterPage() {
     <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10 sm:px-8">
       <div className="grid w-full max-w-5xl items-center gap-10 lg:grid-cols-2 lg:gap-20">
         <section className="space-y-6">
-          <div className="flex items-center gap-3 text-xl"><span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Package aria-hidden="true" className="size-6" /></span><BrandWordmark /></div>
+          <Image
+                  src="/images/logo.png"
+                  alt="SURFERTrack"
+                  width={1280}
+                  height={295}
+                  sizes="224px"
+                  className="h-auto w-full"
+                />
           <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">Built for growing businesses</p>
           <h1 className="max-w-md text-4xl leading-tight font-semibold tracking-tight sm:text-5xl">Your next delivery starts here.</h1>
           <p className="max-w-sm text-base leading-relaxed text-muted-foreground">Create your SME account and take the first step toward simpler parcel operations.</p>
