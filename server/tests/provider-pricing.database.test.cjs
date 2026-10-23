@@ -13,7 +13,7 @@ test('provider pricing, snapshots and concurrency against confirmed development 
   const { createOrderSchema } = require('../dist/modules/orders/order.validation');
   const operator = { id: randomUUID(), role: 'OPERATOR' }, otherOperator = { id: randomUUID(), role: 'OPERATOR' }, sme = { id: randomUUID(), role: 'SME' };
   const providerIds = [randomUUID(), randomUUID()];
-  const input = (providerId, city = 'Yangon', weight = 1) => createOrderSchema.parse({ operatorId: operator.id, deliveryProviderId: providerId, destinationCity: city, recipientName: 'Fictional Pricing Test', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: weight, codAmount: '10000' });
+  const input = (providerId, city = 'Yangon', weight = 1) => createOrderSchema.parse({ deliveryProviderId: providerId, destinationCity: city, recipientName: 'Fictional Pricing Test', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: weight, codAmount: '10000' });
   try {
     await prisma.profile.createMany({ data: [operator, otherOperator, sme] });
     for (const id of providerIds) await prisma.deliveryProvider.create({ data: { id, name: `Pricing fixture ${id}` } });

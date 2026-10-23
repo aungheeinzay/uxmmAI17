@@ -16,8 +16,8 @@ const { createOrderSchema } = require('../dist/modules/orders/order.validation')
 const id = randomUUID(), owner = randomUUID(), operator = randomUUID();
 auth.authenticate = async token => ({ id: owner, role: token });
 users.getProfile = async () => ({ id: owner, role: 'SME' });
-orders.findOperator = async () => ({ id: operator });
-const input = () => ({ operatorId: operator, destinationCity: ' Yangon ', deliveryProviderId: id, recipientName: 'Test', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Test address', senderName: 'Shop', parcelWeight: 1, codAmount: '5000.00' });
+orders.findOperatorForProvider = async providerId => providerId === id ? ({ id: operator }) : null;
+const input = () => ({ destinationCity: ' Yangon ', deliveryProviderId: id, recipientName: 'Test', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Test address', senderName: 'Shop', parcelWeight: 1, codAmount: '5000.00' });
 let fee = '3500.00', active = true, covered = true, failures = 0, writes = [];
 orders.createOrder = async (data, validate) => {
   if (failures-- > 0) throw { code: 'P2034' };

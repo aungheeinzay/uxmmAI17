@@ -6,6 +6,7 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 const digest = value => createHash('sha256').update(value).digest('hex');
 const authRepo = require('../dist/modules/auth/auth.repository');
 const repo = require('../dist/modules/delivery/delivery.repository');
+const findServicesForCity = repo.findServicesForCity;
 
 const providerIds = { shwe: randomUUID(), khit: randomUUID() };
 const catalog = new Map([
@@ -75,6 +76,22 @@ test('services are normalized by city and priced in MMK', async () => {
     },
   });
   assert.deepEqual(lookups, ['yangon']);
+});
+
+test('service lookup excludes providers without an assigned operator', async () => {
+  const { prisma } = require('../dist/config/prisma');
+  const originalFindMany = prisma.deliveryProvider.findMany;
+  let query;
+  prisma.deliveryProvider.findMany = async args => {
+    query = args;
+    return [];
+  };
+  try {
+    await findServicesForCity('yangon');
+    assert.deepEqual(query.where.operators, { some: { role: 'OPERATOR' } });
+  } finally {
+    prisma.deliveryProvider.findMany = originalFindMany;
+  }
 });
 
 test('a city without providers returns an empty list', async () => {

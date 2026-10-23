@@ -58,7 +58,7 @@ function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, op
 
 export async function createOrder(ownerId: string, input: CreateOrderInput): Promise<CreatedOrder> {
   await userService.getProfile(ownerId);
-  const operator = await repository.findOperator(input.operatorId);
+  const operator = await repository.findOperatorForProvider(input.deliveryProviderId);
   if (!operator) {
     throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
   }

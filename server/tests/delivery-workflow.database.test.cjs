@@ -51,7 +51,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
     assert.equal(rls[0].relrowsecurity, true);
     await prisma.deliveryProvider.create({ data: { id: providerId, name: `Workflow fixture ${providerId}`, cityPrices: { create: { city: "yangon", fee: "3500" } } } });
     await prisma.profile.updateMany({ where: { id: { in: [ids.OPERATOR, ids.RIDER, ids.OTHER, ids.INELIGIBLE] } }, data: { providerId } });
-    const created = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", operatorId: ids.OPERATOR, recipientName: 'Fictional Workflow Recipient', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional workflow test address', senderName: 'Fictional Workflow Shop', parcelWeight: 1, codAmount: '25000.50' });
+    const created = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", recipientName: 'Fictional Workflow Recipient', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional workflow test address', senderName: 'Fictional Workflow Shop', parcelWeight: 1, codAmount: '25000.50' });
     assert.equal(created.status, 201); const orderId = created.body.data.id; orders.push(orderId);
     assert.equal(created.body.data.status, 'CREATED');
     async function warehouseState(expected) {
@@ -122,7 +122,7 @@ test('full delivery workflow on the explicitly confirmed development database', 
     assert.equal((await call('GET', `/api/orders/${orderId}`, 'SME')).body.data.status, 'DELIVERED');
     const monitoring = await call('GET', '/api/operator/assignments', 'OPERATOR');
     assert.equal(monitoring.body.data.assignments.find(item => item.id === assignment.id).order.status, 'DELIVERED');
-    const cancelOrder = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", operatorId: ids.OPERATOR, recipientName: 'Fictional Cancellation', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: 1, codAmount: '0' });
+    const cancelOrder = await call('POST', '/api/orders', 'SME', { deliveryProviderId: providerId, destinationCity: "Yangon", recipientName: 'Fictional Cancellation', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Fictional address', senderName: 'Fictional Shop', parcelWeight: 1, codAmount: '0' });
     assert.equal(cancelOrder.status, 201); orders.push(cancelOrder.body.data.id);
     assert.equal((await call('PATCH', `/api/orders/${cancelOrder.body.data.id}/status`, 'SME', { status: 'CANCELLED' })).status, 200);
     const cancelled = await call('GET', `/api/operator/warehouse/parcels?search=${cancelOrder.body.data.orderCode}`, 'OPERATOR');

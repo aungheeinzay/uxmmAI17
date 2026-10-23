@@ -5,6 +5,7 @@ import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response
 
 // Every supported parcel status, taken from the generated Prisma enum.
 const statusValues = Object.values(OrderStatus);
+const operatorId = "550e8400-e29b-41d4-a716-446655440000";
 
 const createExample = {
   destinationCity: "yangon",
@@ -17,7 +18,6 @@ const createExample = {
   codAmount: "25000.00",
   senderName: "Example Shop",
   deliveryInstructions: "Please call before delivery.",
-  operatorId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
 const createdExample = {
@@ -28,7 +28,7 @@ const createdExample = {
   id: "660e8400-e29b-41d4-a716-446655440000",
   orderCode: "POA1B2C3D4E5F678",
   ownerId: "550e8400-e29b-41d4-a716-446655440000",
-  operatorId: createExample.operatorId,
+  operatorId,
   recipientName: createExample.recipientName,
   phoneNumber: createExample.phoneNumber,
   township: createExample.township,
@@ -62,8 +62,8 @@ const listedExample = {
   senderName: createdExample.senderName,
   status: "CREATED",
   createdAt: createdExample.createdAt,
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator" },
+  operatorId,
+  operator: { id: operatorId, fullName: "Test Operator" },
 };
 
 const listExample = {
@@ -409,8 +409,8 @@ export const orderSchemas = {
 const orderDetailExample = {
   ...createdExample,
   owner: { id: createdExample.ownerId, fullName: "Shop Owner", phone: "09123456789" },
-  operatorId: createExample.operatorId,
-  operator: { id: createExample.operatorId, fullName: "Test Operator", phone: "09123456789" },
+  operatorId,
+  operator: { id: operatorId, fullName: "Test Operator", phone: "09123456789" },
 };
 
 const statusUpdateExample = {
@@ -458,7 +458,7 @@ export const orderPaths = {
     },
     post: {
       operationId: "createOrder", tags: ["Orders"], summary: "Create an order",
-      description: "Authenticated SME users create an order for their own profile and assign it to an existing OPERATOR profile using operatorId. The server validates the target profile role and persists the operator profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
+      description: "Authenticated SME users create an order for their own profile and select a delivery provider using deliveryProviderId. The server resolves an OPERATOR profile assigned to that provider and persists its profile ID. Ownership, status, order code, QR identifier, currency and timestamps are assigned on the server. The response includes an opaque QR identifier and PNG data URL containing only that identifier. Parcel weight is kilograms. COD is MMK and is stored separately from any future delivery fee. Delivery instructions are stored as text only.",
       security: bearerSecurity,
       requestBody: requestBody(ref("CreateOrderInput"), createExample),
       responses: {

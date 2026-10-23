@@ -8,6 +8,7 @@ import { Plus, ShieldCheck, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { createParcelSchema, type CreateParcelFormValues } from "../schemas/create-parcel.schema";
 import { useDeliveryCities } from "@/features/delivery/hooks/use-delivery-cities";
@@ -125,8 +126,7 @@ export function CreateParcelForm() {
       codAmount: Number(values.codAmount).toFixed(2),
       senderName: "Example Shop",
       deliveryInstructions: values.deliveryNote || "",
-      // operatorId: selected.id,
-      operatorId: 'bfed9a7f-4db4-4104-87e3-57fcaed850bf'
+      deliveryProviderId: selected.id,
     };
 
     try {
@@ -146,7 +146,12 @@ export function CreateParcelForm() {
       }
     } catch (error) {
       console.error("Error creating order:", error);
-      alert(error instanceof Error ? error.message : "An unexpected error occurred.");
+      const message = error instanceof ApiError && error.code === "OPERATOR_NOT_AVAILABLE"
+        ? "This delivery provider does not have an assigned operator yet. Please select another provider."
+        : error instanceof Error
+          ? error.message
+          : "An unexpected error occurred.";
+      alert(message);
     }
   };
 

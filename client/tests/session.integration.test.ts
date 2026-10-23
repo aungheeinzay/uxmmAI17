@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest, type NextResponse } from "next/server";
 
 vi.mock("server-only", () => ({}));
-import { cookieNames, loginSession, logoutSession, orderStatusSession, ordersSession, restoreSession } from "@/features/auth/server/session";
+import { cookieNames, createOrderSession, loginSession, logoutSession, orderStatusSession, ordersSession, restoreSession } from "@/features/auth/server/session";
 
 const require = createRequire(import.meta.url);
 type Account = { id: string; email: string; passwordHash: string; emailVerifiedAt: Date | null; profile: { id: string; fullName: null; phone: null; role: string } };
@@ -65,6 +65,7 @@ beforeAll(async () => {
   };
   users.findProfile = async (id: string) => [...accounts.values()].find((a) => a.id === id)?.profile ?? null;
   const orders = require("../../server/dist/modules/orders/order.repository.js");
+  orders.findOperatorForProvider = async () => null;
   orders.listOrdersWithCount = async (filters: { statuses: string[] }) => {
     capturedListFilters.push(filters);
     return [
@@ -229,6 +230,23 @@ describe("BFF against the real Express controllers and auth services (in-memory 
     expect((await ordersSession(getRequest("?tab=trash", jar(sme)))).status).toBe(400);
     const operator = await login("operator@example.com");
     expect((await ordersSession(getRequest("?tab=all", jar(operator)))).status).toBe(403);
+  });
+
+  it("preserves the operator-unavailable error from order creation", async () => {
+    const sme = await login();
+    const response = await createOrderSession(request("orders", jar(sme), {
+      deliveryProviderId: randomUUID(),
+      recipientName: "Test Recipient",
+      phoneNumber: "09999999999",
+      township: "Tamwe",
+      deliveryAddress: "Test address",
+      parcelWeight: 1,
+      codAmount: "5000.00",
+      senderName: "Test Shop",
+    }));
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).error.code).toBe("OPERATOR_NOT_AVAILABLE");
   });
 
   it("proxies the parcel status view for an SME and rejects invalid identifiers, other origins and roles", async () => {

@@ -18,7 +18,7 @@ export const createOrderApiSchema = z.object({
   codAmount: z.string().trim(),
   senderName: z.string().trim().min(1).max(120),
   deliveryInstructions: z.string().trim().max(1000).optional().nullable(),
-  operatorId: z.string().uuid(),
+  deliveryProviderId: z.string().uuid(),
 });
 
 export type CreateOrderApiInput = z.infer<typeof createOrderApiSchema>;

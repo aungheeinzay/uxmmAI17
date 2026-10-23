@@ -31,6 +31,28 @@ function listedOrder(code, status) {
 }
 
 const capturedFilters = [];
+const deliveryProviderId = randomUUID();
+const resolvedOperatorId = randomUUID();
+let queriedProviderId;
+let createdOperatorId;
+let providerHasOperator = true;
+orderRepo.findOperatorForProvider = async providerId => {
+  queriedProviderId = providerId;
+  return providerHasOperator && providerId === deliveryProviderId ? { id: resolvedOperatorId } : null;
+};
+orderRepo.createOrder = async data => {
+  createdOperatorId = data.operatorId;
+  return {
+    ...data,
+    id: randomUUID(),
+    parcelWeightKg: { toString: () => String(data.parcelWeightKg) },
+    codAmount: { toString: () => String(data.codAmount) },
+    currency: 'MMK',
+    status: 'CREATED',
+    createdAt: new Date('2026-10-20T08:30:00.000Z'),
+    updatedAt: new Date('2026-10-20T08:30:00.000Z'),
+  };
+};
 orderRepo.listOrdersWithCount = async filters => {
   capturedFilters.push(filters);
   const rows = statusesFor(filters).map((status, index) => listedOrder(`POAABBCCDDEEFF00${String(index).padStart(2, '0')}`, status));
@@ -131,6 +153,68 @@ async function list(query, token = tokens.SME) {
   const response = await fetch(base + '/api/orders' + query, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   return { status: response.status, body: await response.json() };
 }
+async function create(body, token = tokens.SME) {
+  const response = await fetch(base + '/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, body: await response.json() };
+}
+
+test('order creation resolves the operator from the selected delivery provider', async () => {
+  providerHasOperator = true;
+  const response = await create({
+    deliveryProviderId,
+    recipientName: 'Test Recipient',
+    phoneNumber: '09999999999',
+    township: 'Tamwe',
+    deliveryAddress: 'Test address',
+    parcelWeight: 1,
+    codAmount: '5000.00',
+    senderName: 'Test Shop',
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(queriedProviderId, deliveryProviderId);
+  assert.equal(createdOperatorId, resolvedOperatorId);
+  assert.equal(response.body.data.operatorId, resolvedOperatorId);
+});
+
+test('order creation rejects a provider without an assigned operator', async () => {
+  providerHasOperator = false;
+  const response = await create({
+    deliveryProviderId,
+    recipientName: 'Test Recipient',
+    phoneNumber: '09999999999',
+    township: 'Tamwe',
+    deliveryAddress: 'Test address',
+    parcelWeight: 1,
+    codAmount: '5000.00',
+    senderName: 'Test Shop',
+  });
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error.code, 'OPERATOR_NOT_AVAILABLE');
+  providerHasOperator = true;
+});
+
+test('order creation rejects client-supplied operator ids', async () => {
+  const response = await create({
+    deliveryProviderId,
+    operatorId: resolvedOperatorId,
+    recipientName: 'Test Recipient',
+    phoneNumber: '09999999999',
+    township: 'Tamwe',
+    deliveryAddress: 'Test address',
+    parcelWeight: 1,
+    codAmount: '5000.00',
+    senderName: 'Test Shop',
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+});
 
 test('authentication and SME role are required to list parcels', async () => {
   for (const token of ['', 'invalid', tokens.expired]) assert.equal((await list('', token)).status, 401);

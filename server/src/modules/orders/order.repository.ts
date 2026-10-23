@@ -248,9 +248,10 @@ export function updateOrderStatus(data: OrderStatusUpdateRecord) {
   });
 }
 
-export function findOperator(id: string) {
+export function findOperatorForProvider(deliveryProviderId: string) {
   return prisma.profile.findFirst({
-    where: { id, role: "OPERATOR" },
+    where: { providerId: deliveryProviderId, role: "OPERATOR" },
+    orderBy: { id: "asc" },
     select: { id: true },
   });
 }
