@@ -32,7 +32,7 @@ const forbidden: Record<number, [string, string]> = {
 export const deliveryPaths = {
   "/api/delivery/services": { get: {
     operationId: "listDeliveryServices", tags: ["Delivery"], summary: "List delivery providers and fees for a city", security: bearerSecurity,
-    description: "Returns active providers that publish an active price for the requested city, ordered by provider name. The city is trimmed and lowercased before lookup. Fees are decimal strings in MMK. Empty services means no provider covers the city.",
+    description: "Returns active providers that publish an active price for the requested city and have at least one assigned OPERATOR profile, ordered by provider name. The city is trimmed and lowercased before lookup. Fees are decimal strings in MMK. Empty services means no available provider covers the city.",
     parameters: [{
       name: "city", in: "query", required: true, schema: { type: "string", minLength: 1, maxLength: 120 },
       example: "yangon", description: "City name; the catalog stores lowercase names.",
