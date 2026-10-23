@@ -39,7 +39,7 @@ export function useOrderList(options?: { enabled?: boolean }) {
     return () => { active = false; };
   }, [page, tab, search, status, attempt, enabled]);
 
-  const isLoading = enabled && (isFetching || orders === null);
+  const isLoading = enabled && (isFetching || (orders === null && !hasError));
 
   const refresh = useCallback(() => {
     setHasError(false);

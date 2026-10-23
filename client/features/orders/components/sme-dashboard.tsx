@@ -16,6 +16,7 @@ import { RecentParcels } from "./recent-parcels";
 import { RecentShipmentsCallout } from "./recent-shipments-callout";
 import { ParcelListTable } from "./parcel-list-table";
 import { ParcelPagination } from "./parcel-pagination";
+import { ParcelListSkeleton } from "./parcel-list-skeleton";
 
 export function SmeDashboard() {
   const { dashboard, isLoading, hasError, refresh } = useSmeDashboard();
@@ -110,20 +111,35 @@ export function SmeDashboard() {
                   </h2>
                   <p className="text-body-md text-muted-foreground">Every parcel in your workspace with current status.</p>
                 </div>
-                <ParcelListTable
-                  orders={allOrders.orders?.orders ?? []}
-                  isRefreshing={allOrders.isLoading}
-                  search={allOrders.search}
-                  onSearchChange={allOrders.setSearch}
-                  status={allOrders.status}
-                  onStatusChange={allOrders.setStatus}
-                  emptyTitle={allOrders.status ? "No parcels with this status" : "No parcels yet"}
-                  emptyDescription={
-                    allOrders.status
-                      ? "No parcel currently holds the selected status."
-                      : "New parcels will appear here as they’re created."
-                  }
-                />
+                {allOrders.hasError && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Shipments unavailable</AlertTitle>
+                    <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                      <span>We couldn’t load your shipments. Check your connection and try again.</span>
+                      <Button variant="brand" size="sm" onClick={allOrders.refresh}>
+                        Try again
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {allOrders.isLoading && !allOrders.orders ? (
+                  <ParcelListSkeleton />
+                ) : (
+                  <ParcelListTable
+                    orders={allOrders.orders?.orders ?? []}
+                    isRefreshing={allOrders.isLoading}
+                    search={allOrders.search}
+                    onSearchChange={allOrders.setSearch}
+                    status={allOrders.status}
+                    onStatusChange={allOrders.setStatus}
+                    emptyTitle={allOrders.status ? "No parcels with this status" : "No parcels yet"}
+                    emptyDescription={
+                      allOrders.status
+                        ? "No parcel currently holds the selected status."
+                        : "New parcels will appear here as they’re created."
+                    }
+                  />
+                )}
                 {allOrders.orders ? (
                   <ParcelPagination
                     pagination={allOrders.orders.pagination}

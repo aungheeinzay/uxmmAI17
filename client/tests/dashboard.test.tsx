@@ -292,6 +292,31 @@ describe("SME dashboard", () => {
     expect(screen.getByRole("button", { name: /All Shipments/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("shows a loading skeleton while the All shipments request is pending", async () => {
+    let resolveOrders!: (response: Response) => void;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).includes("/orders")) {
+        return new Promise<Response>((resolve) => {
+          resolveOrders = resolve;
+        });
+      }
+      return Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<SmeDashboard />);
+
+    await screen.findByRole("button", { name: /All Shipments/ });
+    await userEvent.click(screen.getByRole("button", { name: /All Shipments/ }));
+
+    expect(screen.getByRole("status", { name: "Loading parcels" })).toBeTruthy();
+    expect(screen.queryByText("No parcels yet")).toBeNull();
+
+    resolveOrders(new Response(JSON.stringify(ordersPayload), { status: 200 }));
+
+    expect(await screen.findByText("POAABBCCDDEEFF0011")).toBeTruthy();
+    expect(screen.queryByRole("status", { name: "Loading parcels" })).toBeNull();
+  });
+
   it("filters the All shipments list by status through the API", async () => {
     const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
