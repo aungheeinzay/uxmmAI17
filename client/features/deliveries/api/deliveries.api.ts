@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ApiError, postSessionJson } from "@/lib/api-client";
-import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, riderAssignmentListSchema, riderDeliveryQuerySchema, statusRequestSchema, type DeliveryQuery, type RiderDeliveryQuery } from "../types/delivery.types";
+import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, parcelScanRequestSchema, riderAssignmentListSchema, riderDeliveryQuerySchema, statusRequestSchema, type DeliveryQuery, type RiderDeliveryQuery } from "../types/delivery.types";
 async function call<T extends z.ZodType>(path: string, body: unknown, schema: T): Promise<z.infer<T>> {
   const envelope = z.object({ success: z.literal(true), data: z.unknown() }).safeParse(await postSessionJson(path, body));
   if (!envelope.success) throw new ApiError(502, "INVALID_RESPONSE");
@@ -12,6 +12,7 @@ export const getEligibleRiders = (query: DeliveryQuery) => call("operator/riders
 export const getAssignments = (query: DeliveryQuery) => call("operator/assignments", deliveryQuerySchema.parse(query), assignmentListSchema);
 export const getMyAssignments = (query: RiderDeliveryQuery) => call("rider/assignments", riderDeliveryQuerySchema.parse(query), riderAssignmentListSchema);
 export const getMyAssignment = (id: string) => call("rider/assignments/detail", { id: z.string().uuid().parse(id) }, assignmentDetailSchema);
+export const verifyParcelScan = (input: { qrData: string }) => call("rider/parcel-scans/verify", parcelScanRequestSchema.parse(input), assignmentDetailSchema);
 export const assignParcel = (input: z.infer<typeof createAssignmentSchema>) => call("operator/assignments/create", createAssignmentSchema.parse(input), assignmentSchema);
 export const updateDelivery = (input: z.infer<typeof statusRequestSchema>) => call("rider/assignments/status", statusRequestSchema.parse(input), assignmentDetailSchema.extend({ previousStatus: z.string() }));
 export function deliveryError(error: unknown) {

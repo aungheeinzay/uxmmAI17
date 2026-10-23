@@ -2,6 +2,11 @@ import { z } from "zod";
 import { OrderStatus } from "../../generated/prisma/enums";
 
 export const assignmentIdSchema = z.string().uuid();
+const qrIdentifier = /^[a-f0-9]{64}$/i;
+const orderCode = /^PO[0-9A-F]{16}$/i;
+export const parcelScanSchema = z.object({
+  qrData: z.string().trim().min(1).max(512).refine(value => qrIdentifier.test(value) || orderCode.test(value), "Unsupported parcel QR or code."),
+}).strict();
 export const activeAssignmentStatuses = ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"] as const;
 export const completedAssignmentStatuses = ["DELIVERED", "FAILED", "CANCELLED"] as const;
 export const assignmentQuerySchema = z.object({
@@ -29,3 +34,4 @@ export type AssignmentQuery = z.infer<typeof assignmentQuerySchema>;
 export type RiderAssignmentQuery = z.infer<typeof riderAssignmentQuerySchema>;
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
 export type DeliveryStatusInput = z.infer<typeof deliveryStatusSchema>;
+export type ParcelScanInput = z.infer<typeof parcelScanSchema>;

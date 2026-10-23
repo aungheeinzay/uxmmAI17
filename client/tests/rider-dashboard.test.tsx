@@ -260,8 +260,8 @@ it("links cards to owned assignments, exposes incidents, and keeps QR scanning h
   expect(screen.getByRole("link", { name: `View delivery ${item.order.orderCode}` }).getAttribute("href")).toBe(`/rider/assignments/${item.id}`);
   expect(screen.getByRole("link", { name: "Incidents" }).getAttribute("href")).toBe("/rider/incidents");
   await user.click(screen.getByRole("button", { name: /Scan Parcel QR Code/ }));
-  expect(await screen.findByText("QR scanning is coming soon")).toBeTruthy();
-  expect(screen.getByText(/not available yet/)).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Scan Parcel QR Code" })).toBeTruthy();
+  expect(screen.getByLabelText("Manual parcel code fallback")).toBeTruthy();
   expect(screen.queryByText("Verify custody")).toBeNull();
   expect(screen.getByRole("button", { name: "Back to deliveries" })).toBeTruthy();
 });

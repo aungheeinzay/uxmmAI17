@@ -18,6 +18,7 @@ operatorAssignmentRouter.get("/assignments", requireAuth, requireRole("OPERATOR"
 operatorAssignmentRouter.post("/assignments", requireAuth, requireRole("OPERATOR"), controller.create);
 export const riderDeliveryRouter = Router();
 riderDeliveryRouter.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+riderDeliveryRouter.post("/parcel-scans/verify", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.verifyParcelScan);
 riderDeliveryRouter.get("/assignments", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.riderList);
 riderDeliveryRouter.get("/assignments/:id", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.riderDetail);
 riderDeliveryRouter.patch("/assignments/:id/status", requireAuth, requireRole("RIDER"), requireCompleteRiderProfile, controller.updateStatus);

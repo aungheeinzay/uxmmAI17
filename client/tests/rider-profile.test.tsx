@@ -150,7 +150,7 @@ it("renders real active and completed deliveries with an honest QR entry point",
   await user.click(screen.getByRole("tab", { name: /Completed/ }));
   expect(await screen.findByText("Completed Recipient")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: /Scan Parcel QR Code/ }));
-  expect(await screen.findByText("QR scanning is coming soon")).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Scan Parcel QR Code" })).toBeTruthy();
   expect(screen.queryByText("Verify custody")).toBeNull();
   expect(vi.mocked(fetch).mock.calls.some(call => String(call[0]).endsWith("/status"))).toBe(false);
 });

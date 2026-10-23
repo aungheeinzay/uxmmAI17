@@ -6,13 +6,13 @@ import {
   Ban, CheckCircle2, ChevronRight, CircleX, MapPin, Package, QrCode, RefreshCw, Scale, TriangleAlert, Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ParcelStatusBadge } from "@/features/operator/components/parcel-status-badge";
 import { formatParcelDecimal } from "@/features/operator/format";
 import { useAuthStore } from "@/stores/auth.store";
 import { getMyAssignments } from "../api/deliveries.api";
 import { useDeliveryResource } from "../hooks/use-deliveries";
 import { DeliveryPagination } from "./delivery-shared";
+import { ParcelScanDialog } from "./parcel-scan-dialog";
 import {
   activeDeliveryStatuses, completedDeliveryStatuses,
   type Assignment, type RiderDeliveryQuery,
@@ -252,15 +252,7 @@ export function RiderDashboard() {
         )}
       </div>
 
-      <Dialog open={scanOpen} onOpenChange={setScanOpen}>
-        <DialogContent>
-          <DialogTitle className="text-lg font-semibold">QR scanning is coming soon</DialogTitle>
-          <DialogDescription>
-            Parcel QR scanning and custody verification are not available yet. This shortcut does not verify that a parcel is in your custody. Open an assigned parcel from My Deliveries to continue.
-          </DialogDescription>
-          <Button onClick={() => setScanOpen(false)} className="min-h-11 w-full">Back to deliveries</Button>
-        </DialogContent>
-      </Dialog>
+      <ParcelScanDialog open={scanOpen} onOpenChange={setScanOpen} onCompleted={refresh} />
     </div>
   );
 }

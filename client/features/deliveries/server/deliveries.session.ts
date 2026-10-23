@@ -3,11 +3,11 @@ import { z } from "zod";
 import type { NextRequest } from "next/server";
 import { withAuthenticatedSession } from "@/features/auth/server/session";
 import { expressAuth, SessionError } from "@/features/auth/server/express-auth";
-import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, riderAssignmentListSchema, riderDeliveryQuerySchema, statusRequestSchema } from "../types/delivery.types";
-type Operation = "riders" | "operatorList" | "create" | "riderList" | "detail" | "status";
+import { assignmentSchema, assignmentDetailSchema, assignmentListSchema, eligibleRidersSchema, createAssignmentSchema, deliveryQuerySchema, parcelScanRequestSchema, riderAssignmentListSchema, riderDeliveryQuerySchema, statusRequestSchema } from "../types/delivery.types";
+type Operation = "riders" | "operatorList" | "create" | "riderList" | "detail" | "status" | "scan";
 export function deliveriesSession(request: NextRequest, operation: Operation) {
   return withAuthenticatedSession(request, async ({ user, accessToken }) => {
-    const rider = ["riderList", "detail", "status"].includes(operation);
+    const rider = ["riderList", "detail", "status", "scan"].includes(operation);
     if (user.role !== (rider ? "RIDER" : "OPERATOR")) throw new SessionError(403, "FORBIDDEN");
     const text = await request.text();
     if (text.length > 16384) throw new SessionError(413, "INVALID_REQUEST");
@@ -16,8 +16,13 @@ export function deliveriesSession(request: NextRequest, operation: Operation) {
     let path: string, input: unknown = undefined, method: "PATCH" | undefined;
     const responseSchema = operation === "riders" ? eligibleRidersSchema : operation === "create" ? assignmentSchema
       : operation === "detail" ? assignmentDetailSchema : operation === "status" ? assignmentDetailSchema.extend({ previousStatus: z.string() })
+      : operation === "scan" ? assignmentDetailSchema
       : operation === "riderList" ? riderAssignmentListSchema : assignmentListSchema;
-    if (operation === "create") {
+    if (operation === "scan") {
+      const parsed = parcelScanRequestSchema.safeParse(body);
+      if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
+      input = parsed.data; path = "/api/rider/parcel-scans/verify";
+    } else if (operation === "create") {
       const parsed = createAssignmentSchema.safeParse(body);
       if (!parsed.success) throw new SessionError(400, "VALIDATION_ERROR");
       input = parsed.data; path = "/api/operator/assignments";

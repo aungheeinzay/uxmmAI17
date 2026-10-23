@@ -1,7 +1,7 @@
 import { pricingFields, pricingRequired } from "../providers/provider.openapi";
 import { OrderStatus } from "../../generated/prisma/enums";
 import { bearerSecurity, errorResponses, inputSchema, ref, requestBody, response, successSchema } from "../../lib/openapi";
-import { assignmentQuerySchema, createAssignmentSchema } from "./assignment.validation";
+import { assignmentQuerySchema, createAssignmentSchema, parcelScanSchema } from "./assignment.validation";
 
 const uuid = { type: "string", format: "uuid" };
 const text = { type: "string" };
@@ -23,6 +23,7 @@ const pagination = { type: "object", required: ["page", "pageSize", "total", "to
 } };
 export const assignmentSchemas = {
   CreateAssignmentInput: inputSchema(createAssignmentSchema),
+  ParcelScanInput: inputSchema(parcelScanSchema),
   // JSON Schema cannot encode Zod refinements; document their exact runtime constraints explicitly.
   DeliveryStatusInput: { type: "object", additionalProperties: false, required: ["status"], properties: {
     status: { type: "string", enum: ["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"] },
@@ -108,6 +109,11 @@ export const assignmentPaths = {
       responses: { ...errorResponses([400, 401, 403, 409, 500], { 403: ["FORBIDDEN", "Insufficient permissions."], 409: ["PROVIDER_MEMBERSHIP_REQUIRED", "Your delivery provider has not been configured."] }), 200: response("Paginated assignments", successSchema(ref("AssignmentList"))) },
     },
   },
+  "/api/rider/parcel-scans/verify": { post: { ...rider, operationId: "verifyRiderParcelScan", summary: "Verify an assigned parcel QR (RIDER only)",
+    description: "Parses the current SURFERTrack QR identifier or order code, then returns details only when the authenticated, active, complete Rider owns an assignment for the same delivery provider. Scanning never creates an assignment or changes status. QR knowledge alone is not authorization.",
+    requestBody: requestBody(ref("ParcelScanInput"), { qrData: "a1b2c3d4e5f678901234567890abcdefa1b2c3d4e5f678901234567890abcdef" }),
+    responses: { ...riderErrorResponses([400, 401, 404, 500], { 404: ["ASSIGNMENT_NOT_FOUND", "Assigned parcel not found."] }), 200: response("Authorized assigned parcel", successSchema(ref("RiderAssignmentDetail"))) },
+  } },
   "/api/rider/assignments": { get: { ...rider, operationId: "riderAssignments", summary: "List my assignments (RIDER only)",
     description: "RIDER only. Requires a completed profile and provider membership; incomplete Riders receive 403 RIDER_PROFILE_INCOMPLETE, and a missing membership returns 403 RIDER_PROVIDER_MEMBERSHIP_REQUIRED. Filters by authenticated Rider ID at the database boundary. riderId query overrides are rejected. Optional group=active|completed selects the dashboard tab; optional status selects one status and must belong to group when both are supplied. Counts always cover the full authenticated Rider assignment set across both groups and are independent of pagination and filters. Includes recipient contact/address, destination city, parcel weight and exact COD strings for assigned deliveries only. Newest assignedAt then id first.", parameters: riderQuery,
     responses: { ...riderErrorResponses([400, 401, 500]), 200: response("Own paginated assignments with full-dataset counts", successSchema(ref("RiderAssignmentList"))) },

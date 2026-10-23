@@ -8,6 +8,8 @@ import { Plus, ShieldCheck, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { createParcelSchema, type CreateParcelFormValues } from "../schemas/create-parcel.schema";
 import { useDeliveryCities } from "@/features/delivery/hooks/use-delivery-cities";
@@ -58,6 +60,7 @@ function formatCityLabel(city: string) {
 export function CreateParcelForm() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [providerId, setProviderId] = useState<string | null>(null);
   const { data: citiesData } = useDeliveryCities();
   const cities = useMemo(() => (citiesData?.cities ?? []), [citiesData]);
@@ -103,13 +106,14 @@ export function CreateParcelForm() {
   }, [cities, cityValue, setValue]);
 
   const onSubmit = async (values: CreateParcelFormValues) => {
+    setProfileError(null);
     if (!selected || !cityKey) {
       alert("Please select a delivery provider.");
       return;
     }
     const senderName = user?.fullName?.trim();
     if (!senderName) {
-      alert("Your profile must have a name before creating a parcel.");
+      setProfileError("Add your name to your SME profile before creating a parcel. Your name is used as the sender; it will never be replaced with the recipient name.");
       return;
     }
 
@@ -152,6 +156,16 @@ export function CreateParcelForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <div className="lg:col-span-8">
+        {profileError ? (
+          <Alert variant="destructive" role="alert" className="mb-6">
+            <AlertDescription className="flex flex-wrap items-center gap-2">
+              <span>{profileError}</span>
+              <Link className="font-semibold underline underline-offset-2" href="/seller/settings">
+                Open profile settings
+              </Link>
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div className="rounded-[20px] border border-[#E5E7EB] bg-white p-6 shadow-sm">
           <div className="space-y-8">
             <section className="space-y-5">

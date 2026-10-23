@@ -15,7 +15,7 @@ const validation = require('../dist/modules/providers/provider.validation');
 const { createOrderSchema } = require('../dist/modules/orders/order.validation');
 const id = randomUUID(), owner = randomUUID(), operator = randomUUID();
 auth.authenticate = async token => ({ id: owner, role: token });
-users.getProfile = async () => ({ id: owner, role: 'SME' });
+users.getProfile = async () => ({ id: owner, role: 'SME', fullName: 'Test Shop' });
 orders.findOperator = async () => ({ id: operator });
 const input = () => ({ operatorId: operator, destinationCity: ' Yangon ', deliveryProviderId: id, recipientName: 'Test', phoneNumber: '09999999999', township: 'Tamwe', deliveryAddress: 'Test address', senderName: 'Shop', parcelWeight: 1, codAmount: '5000.00' });
 let fee = '3500.00', active = true, covered = true, failures = 0, writes = [];
@@ -45,6 +45,15 @@ test('server snapshots fixed fees independently of COD and weight and retains hi
   fee = '4500.25';
   assert.equal((await service.createOrder(owner, createOrderSchema.parse(input()))).deliveryFee, '4500.25');
   assert.equal(writes[0].deliveryFee.toFixed(2), '3500.00');
+});
+test('missing SME profile name is rejected without substituting recipient identity', async () => {
+  users.getProfile = async () => ({ id: owner, role: 'SME', fullName: null });
+  await assert.rejects(
+    () => service.createOrder(owner, createOrderSchema.parse(input())),
+    error => error.code === 'VALIDATION_ERROR' && /profile name/i.test(error.message),
+  );
+  assert.equal(writes.length, 3);
+  users.getProfile = async () => ({ id: owner, role: 'SME', fullName: 'Test Shop' });
 });
 test('inactive provider and unsupported city reject creation before writes', async () => {
   const count = writes.length;

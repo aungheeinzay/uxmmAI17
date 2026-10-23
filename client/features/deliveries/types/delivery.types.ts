@@ -37,9 +37,11 @@ export const eligibleRidersSchema = z.object({ riders: z.array(person), paginati
 export const createAssignmentSchema = z.object({ orderId: z.string().uuid(), riderId: z.string().uuid() }).strict();
 export const deliveryStatusSchema = z.object({ status: z.enum(["IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED"]), note: z.string().trim().min(1).max(1000).optional() }).strict().refine(value => value.status !== "FAILED" || (value.note?.length ?? 0) >= 3, { path: ["note"], message: "Enter a failure reason of at least 3 characters." });
 export const statusRequestSchema = z.object({ id: z.string().uuid(), ...deliveryStatusSchema.shape }).strict().refine(value => value.status !== "FAILED" || (value.note?.length ?? 0) >= 3, { path: ["note"], message: "Enter a failure reason of at least 3 characters." });
+export const parcelScanRequestSchema = z.object({ qrData: z.string().trim().min(1).max(512) }).strict();
 export type Assignment = z.infer<typeof assignmentSchema>;
 export type AssignmentDetail = z.infer<typeof assignmentDetailSchema>;
 export type RiderAssignmentList = z.infer<typeof riderAssignmentListSchema>;
 export type RiderAssignmentCounts = z.infer<typeof riderAssignmentCountsSchema>;
 export type DeliveryStatusInput = z.infer<typeof deliveryStatusSchema>;
+export type ParcelScanRequest = z.infer<typeof parcelScanRequestSchema>;
 export const riderActions: Record<string, DeliveryStatusInput["status"][]> = { PICKED_UP: ["IN_TRANSIT"], IN_TRANSIT: ["OUT_FOR_DELIVERY", "FAILED"], OUT_FOR_DELIVERY: ["DELIVERED", "FAILED"] };

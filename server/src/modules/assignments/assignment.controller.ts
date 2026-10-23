@@ -1,6 +1,6 @@
 import { asyncHandler } from "../../middleware/async-handler";
 import * as service from "./assignment.service";
-import { assignmentIdSchema, assignmentQuerySchema, createAssignmentSchema, deliveryStatusSchema, riderAssignmentQuerySchema } from "./assignment.validation";
+import { assignmentIdSchema, assignmentQuerySchema, createAssignmentSchema, deliveryStatusSchema, parcelScanSchema, riderAssignmentQuerySchema } from "./assignment.validation";
 
 export const eligibleRiders = asyncHandler(async (req, res) => {
   res.json({ success: true, data: await service.eligibleRiders(req.auth!, assignmentQuerySchema.parse(req.query)) });
@@ -19,4 +19,7 @@ export const riderDetail = asyncHandler(async (req, res) => {
 });
 export const updateStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, data: await service.updateDeliveryStatus(req.auth!, assignmentIdSchema.parse(req.params.id), deliveryStatusSchema.parse(req.body)) });
+});
+export const verifyParcelScan = asyncHandler(async (req, res) => {
+  res.json({ success: true, data: await service.verifyParcelScan(req.auth!, parcelScanSchema.parse(req.body)) });
 });

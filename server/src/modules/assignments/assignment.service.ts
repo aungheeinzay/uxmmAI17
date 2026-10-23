@@ -3,7 +3,7 @@ import { AppError } from "../../lib/errors/app-error";
 import { serializePricing } from "../providers/order-pricing";
 import { isTransactionConflict } from "../../lib/errors/transaction-conflict";
 import * as repository from "./assignment.repository";
-import type { AssignmentQuery, CreateAssignmentInput, DeliveryStatusInput, RiderAssignmentQuery } from "./assignment.validation";
+import { parcelScanSchema, type AssignmentQuery, type CreateAssignmentInput, type DeliveryStatusInput, type RiderAssignmentQuery } from "./assignment.validation";
 
 type Actor = { id: string; role: Role };
 function requireRole(actor: Actor, role: Role) {
@@ -90,6 +90,26 @@ export async function riderAssignment(actor: Actor, id: string) {
   requireRole(actor, "RIDER");
   const row = await repository.findRiderAssignment(id, actor.id);
   if (!row) throw new AppError(404, "ASSIGNMENT_NOT_FOUND", "Assignment not found.");
+  return serialize(row);
+}
+export async function verifyParcelScan(actor: Actor, input: { qrData: string }) {
+  requireRole(actor, "RIDER");
+  let parsed: { qrData: string };
+  try {
+    parsed = parcelScanSchema.parse(input);
+  } catch {
+    throw new AppError(400, "VALIDATION_ERROR", "Unsupported parcel QR or code.");
+  }
+  const membership = await repository.findRiderMembership(actor.id);
+  if (!membership || membership.role !== "RIDER") throw new AppError(403, "FORBIDDEN", "Only Riders may scan parcels.");
+  if (membership.deactivatedAt) throw new AppError(403, "RIDER_DEACTIVATED", "This Rider account is inactive. Contact your Operator.");
+  if (!membership.providerId) throw new AppError(403, "RIDER_PROVIDER_MEMBERSHIP_REQUIRED", "Your Rider account is not linked to a delivery provider.");
+  const normalized = parsed.qrData.trim();
+  const reference = /^[a-f0-9]{64}$/i.test(normalized)
+    ? { kind: "qr" as const, value: normalized.toLowerCase() }
+    : { kind: "orderCode" as const, value: normalized.toUpperCase() };
+  const row = await repository.findRiderAssignmentByParcelReference(actor.id, membership.providerId, reference);
+  if (!row) throw new AppError(404, "ASSIGNMENT_NOT_FOUND", "Assigned parcel not found.");
   return serialize(row);
 }
 // Rider-specific subset; SME status workflows are deliberately unchanged.

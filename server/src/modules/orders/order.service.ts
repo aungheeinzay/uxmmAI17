@@ -62,13 +62,16 @@ function serialize(order: Awaited<ReturnType<typeof repository.createOrder>>, op
 export async function createOrder(ownerId: string, input: CreateOrderInput): Promise<CreatedOrder> {
   const owner = await userService.getProfile(ownerId);
   if (owner.role !== "SME") throw new AppError(403, "FORBIDDEN", "Only SME users may create orders.");
+  const senderName = owner.fullName?.trim();
+  if (!senderName) {
+    throw new AppError(400, "VALIDATION_ERROR", "Complete your SME profile name before creating an order.");
+  }
   const operator = input.operatorId
     ? await repository.findOperator(input.operatorId, input.deliveryProviderId)
     : await repository.findOperatorForProvider(input.deliveryProviderId);
   if (!operator) {
     throw new AppError(404, "OPERATOR_NOT_AVAILABLE", "Operator is not available.");
   }
-  const senderName = owner.fullName?.trim() || input.senderName;
   const deliveryInstructions = input.deliveryInstructions ? input.deliveryInstructions : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const qrIdentifier = randomBytes(32).toString("hex");

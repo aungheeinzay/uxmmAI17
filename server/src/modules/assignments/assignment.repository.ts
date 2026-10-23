@@ -42,6 +42,16 @@ export function insertAssignment(tx: Transaction, input: { orderId: string; ride
 export function findRiderAssignment(id: string, riderId: string, tx: Transaction = prisma) {
   return tx.riderAssignment.findFirst({ where: { id, riderId }, select: detailSelect });
 }
+export function findRiderMembership(id: string) {
+  return prisma.profile.findUnique({ where: { id }, select: { role: true, providerId: true, deactivatedAt: true } });
+}
+export function findRiderAssignmentByParcelReference(riderId: string, providerId: string, reference: { kind: "qr" | "orderCode"; value: string }) {
+  const order = reference.kind === "qr" ? { qrIdentifier: reference.value } : { orderCode: reference.value };
+  return prisma.riderAssignment.findFirst({
+    where: { riderId, rider: { providerId }, order: { ...order, deliveryProviderId: providerId } },
+    select: detailSelect,
+  });
+}
 export async function changeStatus(tx: Transaction, input: { id: string; orderId: string; riderId: string; previousStatus: OrderStatus; status: OrderStatus; note: string | null }) {
   const changed = await tx.parcelOrder.updateMany({ where: {
     id: input.orderId, status: input.previousStatus,
