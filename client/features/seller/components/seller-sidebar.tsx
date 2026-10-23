@@ -23,7 +23,7 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
       className="flex w-full items-center rounded-xl bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
     >
       <Image
-        src="/images/logo.png"
+        src="/images/logo_white.png"
         alt="SURFERTrack"
         width={1280}
         height={295}

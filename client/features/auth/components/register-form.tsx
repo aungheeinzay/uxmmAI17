@@ -89,7 +89,7 @@ export function RegisterForm() {
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-1.5 right-1.5"
+              className="absolute right-1.5"
               disabled={registration.isPending}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
@@ -103,7 +103,7 @@ export function RegisterForm() {
             </Button>
           </div>
           <p id="password-hint" className="text-xs text-muted-foreground">
-            Use 8–128 characters. Choose a unique password.
+            Use at least 8 characters. Choose a unique password.
           </p>
           {errors.password && (
             <p
@@ -135,7 +135,7 @@ export function RegisterForm() {
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute top-1.5 right-1.5"
+              className="absolute right-1.5"
               disabled={registration.isPending}
               aria-label={
                 showConfirmation
