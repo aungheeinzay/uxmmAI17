@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   Check,
+  CheckCircle2,
   Clock,
   Copy,
   MapPin,
@@ -229,6 +230,15 @@ export function ParcelDetailsContent({
               <ShieldCheck aria-hidden="true" className="size-[18px]" />
               Preview public tracking
             </Link>
+          </Button>
+
+          <Button
+              type="button"
+              onClick={() => {}}
+              className="h-auto w-full mt-2 gap-2 rounded-xl bg-[#3D51A3] px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-[#32438A]"
+            >
+              <CheckCircle2 aria-hidden="true" className="size-4" />
+              Print Receipt
           </Button>
 
         </section>

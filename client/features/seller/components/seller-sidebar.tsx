@@ -20,7 +20,7 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
     <Link
       href="/seller"
       onClick={onNavigate}
-      className="flex w-full items-center rounded-xl bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+      className="flex w-full items-center rounded-xl px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
     >
       <span className="flex items-center gap-2">
         <BrandLogo className="size-10 shrink-0" priority />

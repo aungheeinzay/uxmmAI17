@@ -76,8 +76,6 @@ export function SmeDashboard() {
                   failed={dashboard.statusCounts.FAILED + dashboard.statusCounts.CANCELLED}
                 />
 
-                <RecentShipmentsCallout onViewRecentShipments={() => setView("recent")} />
-
 <section className="rounded-xl border border-[#FED7AA] bg-[#FFF7ED] p-4">
       <div className="flex items-start gap-3">
         <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 text-[#F97316]" />
