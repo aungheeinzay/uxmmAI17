@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, LogOut, Sparkles } from "lucide-react";
@@ -14,6 +13,7 @@ import { useLogout } from "@/features/auth/hooks/use-logout";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 import { roleLabels } from "@/features/auth/role-routes";
+import { BrandLogo } from "@/components/shared/brand-logo";
 
 function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -22,14 +22,12 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
       onClick={onNavigate}
       className="flex w-full items-center rounded-xl bg-white px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
     >
-      <Image
-        src="/images/logo_white.png"
-        alt="SURFERTrack"
-        width={1280}
-        height={295}
-        sizes="224px"
-        className="h-auto w-full"
-      />
+      <span className="flex items-center gap-2">
+        <BrandLogo className="size-10 shrink-0" priority />
+        <span className="text-lg font-bold tracking-tight text-white" aria-label="SURFERTrack">
+          SURFER<span className="text-white/70">Track</span>
+        </span>
+      </span>
     </Link>
   );
 }

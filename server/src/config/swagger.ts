@@ -13,6 +13,7 @@ import { operatorPaths, operatorSchemas } from "../modules/operator/operator.ope
 import { assignmentPaths, assignmentSchemas } from "../modules/assignments/assignment.openapi";
 import { warehousePaths, warehouseSchemas } from "../modules/operator/warehouse/warehouse.openapi";
 import { incidentPaths, incidentSchemas } from "../modules/incidents/incident.openapi";
+import { reportPaths, reportSchemas } from "../modules/operator/reports/report.openapi";
 import { errorSchema, response } from "../lib/openapi";
 
 export const openApiDocument = {
@@ -37,10 +38,10 @@ export const openApiDocument = {
   ],
   components: {
     securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", description: "Enter only the opaque access token, without the Bearer prefix. This is not a JWT." } },
-    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas, ...incidentSchemas, ...deliverySchemas },
+    schemas: { Error: errorSchema, ...providerSchemas, ...authSchemas, ...userSchemas, ...orderSchemas, ...riderSchemas, ...operatorSchemas, ...assignmentSchemas, ...warehouseSchemas, ...riderManagementSchemas, ...riderProfileSchemas, ...incidentSchemas, ...deliverySchemas, ...reportSchemas },
   },
   paths: {
-    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...deliveryPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths,
+    ...authPaths, ...userPaths, ...orderPaths, ...riderPaths, ...deliveryPaths, ...operatorPaths, ...assignmentPaths, ...warehousePaths, ...reportPaths,
     ...providerPaths,
     ...riderManagementPaths,
     ...riderProfilePaths,

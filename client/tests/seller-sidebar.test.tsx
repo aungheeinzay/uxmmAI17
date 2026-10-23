@@ -17,7 +17,7 @@ afterEach(() => {
 
 it("shows the logo brand, workspace, and both nav sections", () => {
   render(<SellerSidebar />);
-  expect(screen.getByRole("img", { name: "SURFERTrack" }).getAttribute("src")).toContain("logo_white.png");
+  expect(screen.getByLabelText("SURFERTrack")).toBeTruthy();
   expect(screen.getByText("Seller workspace")).toBeTruthy();
   expect(screen.getByText("Operations")).toBeTruthy();
   expect(screen.getByText("Delivery")).toBeTruthy();
